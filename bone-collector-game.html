@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bone Collector - Cute Richard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Comic Sans MS', 'Arial', sans-serif;
+            background: linear-gradient(135deg, #a8e063, #56ab2f);
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .grass-texture {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background:
+                repeating-linear-gradient(
+                    90deg,
+                    #76b947 0px,
+                    #a8e063 10px,
+                    #56ab2f 20px
+                );
+            opacity: 0.3;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .header {
+            background: rgba(86, 171, 47, 0.9);
+            color: white;
+            padding: 15px;
+            text-align: center;
+            position: relative;
+            z-index: 10;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+
+        .header h1 {
+            font-size: 1.8em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .score-board {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 10px;
+            font-size: 1.1em;
+        }
+
+
+        .game-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        .modal {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 100;
+            background: rgba(255, 255, 255, 0.98);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            max-width: 500px;
+            width: 90%;
+        }
+
+        .modal h2 {
+            color: #56ab2f;
+            margin-bottom: 20px;
+            font-size: 2em;
+        }
+
+        .modal p {
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 1.1em;
+        }
+
+        .modal input {
+            width: 100%;
+            padding: 15px;
+            font-size: 1.2em;
+            border: 2px solid #56ab2f;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-family: 'Comic Sans MS', 'Arial', sans-serif;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #56ab2f, #a8e063);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.3em;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
+            font-family: 'Comic Sans MS', 'Arial', sans-serif;
+            margin: 5px;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 7px 20px rgba(0,0,0,0.4);
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+        }
+
+        .btn-small {
+            padding: 10px 25px;
+            font-size: 1.1em;
+        }
+
+        .controls-hint {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 15px;
+            z-index: 5;
+            font-size: 1.1em;
+        }
+
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 1.4em;
+            }
+            .score-board {
+                font-size: 0.9em;
+            }
+            .modal {
+                padding: 25px 15px;
+            }
+            .modal h2 {
+                font-size: 1.5em;
+            }
+            .settings-btn {
+                right: 10px;
+                top: 10px;
+                padding: 6px 12px;
+                font-size: 1em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="grass-texture"></div>
+
+    <div class="header">
+        <h1>🦴 Richard's Bone Collector 🐕</h1>
+        <div class="score-board">
+            <div>Player: <span id="playerName">...</span></div>
+            <div>Bones: <span id="bonesCollected">0</span>/10 🦴</div>
+            <div>Time: <span id="timer">0</span>s ⏱️</div>
+        </div>
+    </div>
+
+    <div class="game-container">
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- Start Screen -->
+        <div class="modal" id="startScreen">
+            <h2>🐶 Help Richard Find All the Bones! 🦴</h2>
+            <p>Navigate through the maze to collect all 10 bones!<br><br>
+            <strong>Controls:</strong><br>
+            🖱️ Click/Tap where you want Richard to go<br>
+            ⌨️ Or use Arrow Keys/WASD</p>
+            <button class="btn" onclick="startGame()">Start Game!</button>
+            <button class="btn btn-secondary btn-small" onclick="goBack()">Back to Menu</button>
+        </div>
+
+        <!-- Game Over Modal -->
+        <div class="modal" id="gameOverModal">
+            <h2>🎉 Congratulations! 🎉</h2>
+            <p style="font-size: 1.3em; color: #333;">
+                You collected all the bones in <span id="finalTime">0</span> seconds! 🏆<br>
+                <span id="highScoreMessage"></span>
+            </p>
+
+            <!-- Leaderboard -->
+            <div id="leaderboard" style="margin: 20px 0; max-height: 300px; overflow-y: auto;">
+                <h3 style="color: #56ab2f; margin-bottom: 15px;">🏆 Top 10 Players 🏆</h3>
+                <div id="leaderboardList" style="text-align: left; font-size: 0.9em;">
+                    <p style="text-align: center; color: #999;">Loading leaderboard...</p>
+                </div>
+            </div>
+
+            <button class="btn" onclick="restartGame()">Play Again</button>
+            <button class="btn btn-secondary btn-small" onclick="goBack()">Back to Menu</button>
+        </div>
+
+        <div class="controls-hint" id="controlsHint">
+            Click/Tap to move Richard or use Arrow Keys ⌨️
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getDatabase, ref, set, get, update, query, orderByChild, limitToFirst } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+        import { getAnalytics } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDYrFZbFzAyoBBXJoX83Wq_CumP6NYie64",
+            authDomain: "richardgame-67766.firebaseapp.com",
+            databaseURL: "https://richardgame-67766-default-rtdb.firebaseio.com",
+            projectId: "richardgame-67766",
+            storageBucket: "richardgame-67766.firebasestorage.app",
+            messagingSenderId: "886284486792",
+            appId: "1:886284486792:web:f797fe51368861eab8f73d",
+            measurementId: "G-D5K95ZN5GC"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+        const analytics = getAnalytics(app);
+
+        // Make Firebase available globally
+        window.firebaseDB = database;
+        window.firebaseRef = ref;
+        window.firebaseSet = set;
+        window.firebaseGet = get;
+        window.firebaseUpdate = update;
+        window.firebaseQuery = query;
+        window.firebaseOrderByChild = orderByChild;
+        window.firebaseLimitToFirst = limitToFirst;
+
+        // Initialize user system
+        initializeUser();
+    </script>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Set canvas size
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight - document.querySelector('.header').offsetHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // User management - Get data from main index page
+        let userId = null;
+        let userName = 'Player';
+        let userHighScore = Infinity; // Best time (lowest is better)
+
+        function initializeUser() {
+            // Get user data from sessionStorage (set by main index page)
+            const userDataStr = sessionStorage.getItem('richardUserData');
+
+            if (userDataStr) {
+                try {
+                    const userData = JSON.parse(userDataStr);
+                    userId = userData.userId;
+                    userName = userData.userName || 'Player';
+                    userHighScore = userData.highScores?.boneCollector || Infinity;
+                    document.getElementById('playerName').textContent = userName;
+                } catch (error) {
+                    console.error('Error parsing user data:', error);
+                    document.getElementById('playerName').textContent = 'Player';
+                }
+            } else {
+                // No user data found, redirect to main page
+                alert('Please start from the main menu!');
+                window.location.href = 'richard-index.html';
+                return;
+            }
+
+            // Show start screen
+            document.getElementById('startScreen').style.display = 'block';
+        }
+
+        async function saveHighScore(timeTaken) {
+            if (timeTaken < userHighScore) {
+                userHighScore = timeTaken;
+
+                // Update sessionStorage
+                const userDataStr = sessionStorage.getItem('richardUserData');
+                if (userDataStr) {
+                    const userData = JSON.parse(userDataStr);
+                    userData.highScores = userData.highScores || {};
+                    userData.highScores.boneCollector = timeTaken;
+                    sessionStorage.setItem('richardUserData', JSON.stringify(userData));
+                }
+
+                // Update localStorage
+                const localData = JSON.parse(localStorage.getItem('richardUserProfile') || '{}');
+                localData.highScores = localData.highScores || {};
+                localData.highScores.boneCollector = timeTaken;
+                localStorage.setItem('richardUserProfile', JSON.stringify(localData));
+
+                // Try to sync with Firebase (but don't block on it)
+                try {
+                    const userRef = window.firebaseRef(window.firebaseDB, 'users/' + userId + '/highScores');
+                    await window.firebaseUpdate(userRef, {
+                        boneCollector: timeTaken,
+                        lastPlayed: Date.now()
+                    });
+                } catch (error) {
+                    console.warn('Could not sync high score with Firebase, but saved locally:', error);
+                }
+
+                return true; // New high score
+            }
+            return false; // Not a new high score
+        }
+
+        async function loadLeaderboard() {
+            const leaderboardList = document.getElementById('leaderboardList');
+
+            try {
+                // Fetch all users
+                const usersRef = window.firebaseRef(window.firebaseDB, 'users');
+                const snapshot = await window.firebaseGet(usersRef);
+
+                if (!snapshot.exists()) {
+                    leaderboardList.innerHTML = '<p style="text-align: center; color: #999;">No leaderboard data available yet.</p>';
+                    return;
+                }
+
+                // Convert to array and filter users with boneCollector scores
+                const users = [];
+                snapshot.forEach((childSnapshot) => {
+                    const userData = childSnapshot.val();
+                    const score = userData.highScores?.boneCollector;
+
+                    if (score && score !== Infinity) {
+                        users.push({
+                            userId: childSnapshot.key,
+                            name: userData.name || 'Anonymous',
+                            score: score
+                        });
+                    }
+                });
+
+                // Sort by score (lowest time is best)
+                users.sort((a, b) => a.score - b.score);
+
+                // Take top 10
+                const top10 = users.slice(0, 10);
+
+                if (top10.length === 0) {
+                    leaderboardList.innerHTML = '<p style="text-align: center; color: #999;">No scores recorded yet. Be the first!</p>';
+                    return;
+                }
+
+                // Display leaderboard
+                let html = '<div style="background: #f5f5f5; border-radius: 10px; padding: 10px;">';
+                top10.forEach((user, index) => {
+                    const isCurrentUser = user.userId === userId;
+                    const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+                    const bgColor = isCurrentUser ? '#fffacd' : 'white';
+                    const fontWeight = isCurrentUser ? 'bold' : 'normal';
+
+                    html += `
+                        <div style="background: ${bgColor}; padding: 8px 12px; margin: 5px 0; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; font-weight: ${fontWeight};">
+                            <span style="color: #56ab2f; font-size: 1.1em; width: 30px;">${medal}</span>
+                            <span style="flex: 1; color: #333;">${user.name}${isCurrentUser ? ' (You)' : ''}</span>
+                            <span style="color: #666; font-weight: bold;">${user.score}s</span>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+
+                leaderboardList.innerHTML = html;
+
+            } catch (error) {
+                console.warn('Could not load leaderboard:', error);
+                leaderboardList.innerHTML = '<p style="text-align: center; color: #999;">Leaderboard unavailable (offline mode)</p>';
+            }
+        }
+
+        // Game variables
+        let gameRunning = false;
+        let bonesCollected = 0;
+        let totalBones = 10;
+        let gameTimer = 0;
+        let timerInterval = null;
+        let bones = [];
+        let walls = [];
+
+        const cellSize = 40;
+        let cols, rows;
+
+        // Richard (corgi) object
+        let richard = {
+            x: 1,
+            y: 1,
+            targetX: 1,
+            targetY: 1,
+            size: 35,
+            speed: 0.1
+        };
+
+        // Generate maze with walls
+        function generateMaze() {
+            cols = Math.floor(canvas.width / cellSize);
+            rows = Math.floor(canvas.height / cellSize);
+            walls = [];
+            bones = [];
+
+            // Create border walls
+            for (let i = 0; i < cols; i++) {
+                walls.push({ x: i, y: 0 });
+                walls.push({ x: i, y: rows - 1 });
+            }
+            for (let i = 0; i < rows; i++) {
+                walls.push({ x: 0, y: i });
+                walls.push({ x: cols - 1, y: i });
+            }
+
+            // Add some random internal walls (simple maze)
+            for (let i = 0; i < cols * rows * 0.15; i++) {
+                const x = Math.floor(Math.random() * (cols - 2)) + 1;
+                const y = Math.floor(Math.random() * (rows - 2)) + 1;
+
+                // Don't place wall on starting position
+                if (x !== 1 || y !== 1) {
+                    walls.push({ x, y });
+                }
+            }
+
+            // Place bones in random positions
+            let bonesPlaced = 0;
+            while (bonesPlaced < totalBones) {
+                const x = Math.floor(Math.random() * (cols - 2)) + 1;
+                const y = Math.floor(Math.random() * (rows - 2)) + 1;
+
+                // Check if position is free (no wall, no other bone, not starting position)
+                const isWall = walls.some(w => w.x === x && w.y === y);
+                const hasBone = bones.some(b => b.x === x && b.y === y);
+                const isStart = x === 1 && y === 1;
+
+                if (!isWall && !hasBone && !isStart) {
+                    bones.push({ x, y, collected: false });
+                    bonesPlaced++;
+                }
+            }
+        }
+
+        // Draw corgi (Richard)
+        function drawRichard(gridX, gridY) {
+            const x = gridX * cellSize + cellSize / 2;
+            const y = gridY * cellSize + cellSize / 2;
+            const scale = 0.4;
+
+            ctx.save();
+
+            // Body
+            ctx.fillStyle = '#d4a373';
+            ctx.beginPath();
+            ctx.ellipse(x, y, 40 * scale, 25 * scale, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // White belly
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.ellipse(x, y + 5 * scale, 25 * scale, 15 * scale, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Head
+            ctx.fillStyle = '#d4a373';
+            ctx.beginPath();
+            ctx.ellipse(x - 25 * scale, y - 10 * scale, 20 * scale, 18 * scale, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // White face marking
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.ellipse(x - 25 * scale, y - 8 * scale, 12 * scale, 10 * scale, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Eyes
+            ctx.fillStyle = '#000000';
+            ctx.beginPath();
+            ctx.arc(x - 30 * scale, y - 12 * scale, 3 * scale, 0, Math.PI * 2);
+            ctx.arc(x - 20 * scale, y - 12 * scale, 3 * scale, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Nose
+            ctx.fillStyle = '#000000';
+            ctx.beginPath();
+            ctx.arc(x - 25 * scale, y - 5 * scale, 4 * scale, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Tail
+            ctx.strokeStyle = '#d4a373';
+            ctx.lineWidth = 6 * scale;
+            ctx.beginPath();
+            ctx.moveTo(x + 40 * scale, y);
+            ctx.quadraticCurveTo(x + 50 * scale, y - 10 * scale, x + 45 * scale, y - 20 * scale);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        // Draw bone
+        function drawBone(gridX, gridY, size = 1) {
+            const x = gridX * cellSize + cellSize / 2;
+            const y = gridY * cellSize + cellSize / 2;
+            const s = size * 12;
+
+            ctx.fillStyle = '#f5f5dc';
+            ctx.beginPath();
+            ctx.arc(x - s, y, s/2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.arc(x + s, y, s/2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillRect(x - s * 0.8, y - s/4, s * 1.6, s/2);
+
+            ctx.strokeStyle = '#d2b48c';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(x - s, y, s/2, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(x + s, y, s/2, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        // Draw wall
+        function drawWall(gridX, gridY) {
+            const x = gridX * cellSize;
+            const y = gridY * cellSize;
+
+            ctx.fillStyle = '#8b4513';
+            ctx.fillRect(x, y, cellSize, cellSize);
+
+            ctx.strokeStyle = '#654321';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x, y, cellSize, cellSize);
+        }
+
+        // Check if position has a wall
+        function hasWall(gridX, gridY) {
+            return walls.some(w => w.x === gridX && w.y === gridY);
+        }
+
+        // Update game
+        function update() {
+            if (!gameRunning) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw grass background
+            ctx.fillStyle = '#7cb342';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw grid
+            ctx.strokeStyle = 'rgba(139, 195, 74, 0.3)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= cols; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * cellSize, 0);
+                ctx.lineTo(i * cellSize, canvas.height);
+                ctx.stroke();
+            }
+            for (let i = 0; i <= rows; i++) {
+                ctx.beginPath();
+                ctx.moveTo(0, i * cellSize);
+                ctx.lineTo(canvas.width, i * cellSize);
+                ctx.stroke();
+            }
+
+            // Draw walls
+            walls.forEach(wall => drawWall(wall.x, wall.y));
+
+            // Draw uncollected bones
+            bones.forEach(bone => {
+                if (!bone.collected) {
+                    drawBone(bone.x, bone.y);
+                }
+            });
+
+            // Move Richard towards target
+            const dx = richard.targetX - richard.x;
+            const dy = richard.targetY - richard.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance > 0.05) {
+                const newX = richard.x + dx * richard.speed;
+                const newY = richard.y + dy * richard.speed;
+
+                // Check for wall collision
+                const gridX = Math.floor(newX);
+                const gridY = Math.floor(newY);
+
+                if (!hasWall(gridX, gridY)) {
+                    richard.x = newX;
+                    richard.y = newY;
+                }
+            }
+
+            // Draw Richard
+            drawRichard(richard.x, richard.y);
+
+            // Check bone collection
+            const richardGridX = Math.floor(richard.x);
+            const richardGridY = Math.floor(richard.y);
+
+            bones.forEach(bone => {
+                if (!bone.collected && bone.x === richardGridX && bone.y === richardGridY) {
+                    bone.collected = true;
+                    bonesCollected++;
+                    document.getElementById('bonesCollected').textContent = bonesCollected;
+
+                    if (bonesCollected >= totalBones) {
+                        endGame();
+                    }
+                }
+            });
+
+            requestAnimationFrame(update);
+        }
+
+        // Input handling
+        canvas.addEventListener('click', (e) => {
+            if (!gameRunning) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            const gridX = Math.floor(x / cellSize);
+            const gridY = Math.floor(y / cellSize);
+
+            if (!hasWall(gridX, gridY)) {
+                richard.targetX = gridX;
+                richard.targetY = gridY;
+            }
+        });
+
+        canvas.addEventListener('touchstart', (e) => {
+            if (!gameRunning) return;
+            e.preventDefault();
+
+            const rect = canvas.getBoundingClientRect();
+            const x = e.touches[0].clientX - rect.left;
+            const y = e.touches[0].clientY - rect.top;
+
+            const gridX = Math.floor(x / cellSize);
+            const gridY = Math.floor(y / cellSize);
+
+            if (!hasWall(gridX, gridY)) {
+                richard.targetX = gridX;
+                richard.targetY = gridY;
+            }
+        });
+
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            if (!gameRunning) return;
+
+            let newTargetX = richard.targetX;
+            let newTargetY = richard.targetY;
+
+            if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+                newTargetY = Math.floor(richard.y) - 1;
+                newTargetX = Math.floor(richard.x);
+            } else if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
+                newTargetY = Math.floor(richard.y) + 1;
+                newTargetX = Math.floor(richard.x);
+            } else if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+                newTargetX = Math.floor(richard.x) - 1;
+                newTargetY = Math.floor(richard.y);
+            } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+                newTargetX = Math.floor(richard.x) + 1;
+                newTargetY = Math.floor(richard.y);
+            }
+
+            if (!hasWall(newTargetX, newTargetY)) {
+                richard.targetX = newTargetX;
+                richard.targetY = newTargetY;
+            }
+        });
+
+        // Timer
+        function startTimer() {
+            gameTimer = 0;
+            document.getElementById('timer').textContent = gameTimer;
+
+            timerInterval = setInterval(() => {
+                gameTimer++;
+                document.getElementById('timer').textContent = gameTimer;
+            }, 1000);
+        }
+
+        function stopTimer() {
+            clearInterval(timerInterval);
+        }
+
+        // Game flow
+        function startGame() {
+            document.getElementById('startScreen').style.display = 'none';
+            document.getElementById('controlsHint').style.display = 'block';
+
+            gameRunning = true;
+            bonesCollected = 0;
+            document.getElementById('bonesCollected').textContent = bonesCollected;
+
+            richard.x = 1;
+            richard.y = 1;
+            richard.targetX = 1;
+            richard.targetY = 1;
+
+            generateMaze();
+            startTimer();
+            update();
+
+            // Hide controls hint after 5 seconds
+            setTimeout(() => {
+                document.getElementById('controlsHint').style.display = 'none';
+            }, 5000);
+        }
+
+        async function endGame() {
+            gameRunning = false;
+            stopTimer();
+
+            const finalTime = gameTimer;
+            document.getElementById('finalTime').textContent = finalTime;
+
+            // Check and save high score
+            const isNewHighScore = await saveHighScore(finalTime);
+
+            const highScoreMsg = document.getElementById('highScoreMessage');
+            if (isNewHighScore) {
+                highScoreMsg.textContent = '🎊 NEW PERSONAL BEST! 🎊';
+                highScoreMsg.style.color = '#ff6347';
+                highScoreMsg.style.fontWeight = 'bold';
+            } else if (userHighScore < Infinity) {
+                highScoreMsg.textContent = `Your best time: ${userHighScore}s`;
+                highScoreMsg.style.color = '#666';
+                highScoreMsg.style.fontWeight = 'normal';
+            } else {
+                highScoreMsg.textContent = '';
+            }
+
+            // Load and display leaderboard
+            await loadLeaderboard();
+
+            document.getElementById('gameOverModal').style.display = 'block';
+        }
+
+        function restartGame() {
+            document.getElementById('gameOverModal').style.display = 'none';
+            startGame();
+        }
+
+        function goBack() {
+            window.location.href = 'richard-index.html';
+        }
+    </script>
+</body>
+</html>

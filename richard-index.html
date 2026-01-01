@@ -136,13 +136,123 @@
             opacity: 0.8;
         }
 
+        .settings-btn {
+            position: absolute;
+            right: 20px;
+            top: 20px;
+            background: rgba(255,255,255,0.3);
+            border: 2px solid white;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1em;
+            font-family: 'Comic Sans MS', 'Arial', sans-serif;
+            transition: all 0.3s ease;
+        }
+
+        .settings-btn:hover {
+            background: rgba(255,255,255,0.5);
+            transform: scale(1.05);
+        }
+
+        .welcome-text {
+            font-size: 1.1em;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+        }
+
+        .modal-content h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 2em;
+        }
+
+        .modal-content p {
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 1.1em;
+        }
+
+        .modal-content input {
+            width: 100%;
+            padding: 15px;
+            font-size: 1.2em;
+            border: 2px solid #667eea;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-family: 'Comic Sans MS', 'Arial', sans-serif;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.3em;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
+            font-family: 'Comic Sans MS', 'Arial', sans-serif;
+            margin: 5px;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 7px 20px rgba(0,0,0,0.4);
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        .btn-small {
+            padding: 10px 25px;
+            font-size: 1.1em;
+        }
+
         @media (max-width: 480px) {
             .header h1 {
                 font-size: 2em;
             }
-            
+
             .header p {
                 font-size: 1em;
+            }
+
+            .welcome-text {
+                font-size: 0.9em;
+            }
+
+            .settings-btn {
+                right: 10px;
+                top: 10px;
+                padding: 8px 15px;
+                font-size: 0.9em;
             }
 
             .grid-container {
@@ -162,13 +272,23 @@
                 height: 30px;
                 font-size: 1em;
             }
+
+            .modal-content {
+                padding: 25px 15px;
+            }
+
+            .modal-content h2 {
+                font-size: 1.5em;
+            }
         }
     </style>
 </head>
 <body>
     <div class="header">
+        <button class="settings-btn" onclick="openSettings()">⚙️ Settings</button>
         <h1>🐕 Cute Richard 🐕</h1>
         <p>Choose Your Corgi Adventure!</p>
+        <p class="welcome-text">Welcome, <span id="playerName">...</span>! 🐾</p>
     </div>
 
     <div class="grid-container">
@@ -231,11 +351,239 @@
         <p>Tap any tile to play with Richard! 🐾</p>
     </div>
 
+    <!-- Welcome Modal (First Time User) -->
+    <div class="modal" id="welcomeModal">
+        <div class="modal-content">
+            <h2>🐶 Welcome to Richard's World! 🐾</h2>
+            <p>Before we start, what's your name?</p>
+            <input type="text" id="nameInput" placeholder="Enter your name" maxlength="20">
+            <button type="button" class="btn" onclick="saveUserName()">Let's Play!</button>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal" id="settingsModal">
+        <div class="modal-content">
+            <h2>⚙️ Settings</h2>
+            <p>Player Name:</p>
+            <input type="text" id="settingsNameInput" placeholder="Enter new name" maxlength="20">
+            <p style="font-size: 0.9em; color: #999; margin-top: -10px;">User ID: <span id="userIdDisplay" style="font-family: monospace;">...</span></p>
+            <button type="button" class="btn btn-small" onclick="updateUserName()">Save Name</button>
+            <button type="button" class="btn btn-small" onclick="closeSettings()">Close</button>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getDatabase, ref, set, get, update } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+        import { getAnalytics } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDYrFZbFzAyoBBXJoX83Wq_CumP6NYie64",
+            authDomain: "richardgame-67766.firebaseapp.com",
+            databaseURL: "https://richardgame-67766-default-rtdb.firebaseio.com",
+            projectId: "richardgame-67766",
+            storageBucket: "richardgame-67766.firebasestorage.app",
+            messagingSenderId: "886284486792",
+            appId: "1:886284486792:web:f797fe51368861eab8f73d",
+            measurementId: "G-D5K95ZN5GC"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+        const analytics = getAnalytics(app);
+
+        // Make Firebase available globally
+        window.firebaseDB = database;
+        window.firebaseRef = ref;
+        window.firebaseSet = set;
+        window.firebaseGet = get;
+        window.firebaseUpdate = update;
+
+        // Initialize user system
+        window.addEventListener('load', () => {
+            initializeUser();
+        });
+    </script>
+
     <script>
+        // User Management System
+        let userId = null;
+        let userName = 'Player';
+        let userData = {};
+
+        // Initialize user on page load
+        function initializeUser() {
+            // Check if user exists in localStorage
+            userId = localStorage.getItem('richardGameUserId');
+
+            if (!userId) {
+                // Generate new unique user ID
+                userId = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                localStorage.setItem('richardGameUserId', userId);
+
+                // Show welcome modal for first-time user
+                document.getElementById('welcomeModal').style.display = 'flex';
+            } else {
+                // Load existing user data from Firebase
+                loadUserData();
+            }
+        }
+
+        async function loadUserData() {
+            // First try to load from localStorage (offline fallback)
+            const localUserData = localStorage.getItem('richardUserProfile');
+            if (localUserData) {
+                try {
+                    const parsedData = JSON.parse(localUserData);
+                    userName = parsedData.name || 'Player';
+                    userData = parsedData;
+                    document.getElementById('playerName').textContent = userName;
+
+                    // Store in sessionStorage for games to access
+                    sessionStorage.setItem('richardUserData', JSON.stringify({
+                        userId: userId,
+                        userName: userName,
+                        highScores: parsedData.highScores || {}
+                    }));
+                } catch (error) {
+                    console.error('Error parsing local user data:', error);
+                }
+            }
+
+            // Try to sync with Firebase
+            try {
+                const userRef = window.firebaseRef(window.firebaseDB, 'users/' + userId);
+                const snapshot = await window.firebaseGet(userRef);
+
+                if (snapshot.exists()) {
+                    userData = snapshot.val();
+                    userName = userData.name || 'Player';
+                    document.getElementById('playerName').textContent = userName;
+
+                    // Save to localStorage for offline access
+                    localStorage.setItem('richardUserProfile', JSON.stringify(userData));
+
+                    // Store in sessionStorage for games to access
+                    sessionStorage.setItem('richardUserData', JSON.stringify({
+                        userId: userId,
+                        userName: userName,
+                        highScores: userData.highScores || {}
+                    }));
+                } else if (!localUserData) {
+                    // No Firebase data and no local data - ask for name
+                    document.getElementById('welcomeModal').style.display = 'flex';
+                }
+            } catch (error) {
+                console.error('Error loading user data from Firebase:', error);
+                // If Firebase fails and we have local data, we're already good
+                // If no local data, ask for name
+                if (!localUserData) {
+                    document.getElementById('playerName').textContent = 'Player';
+                }
+            }
+        }
+
+        async function saveUserName() {
+            const nameInput = document.getElementById('nameInput').value.trim();
+
+            if (!nameInput) {
+                alert('Please enter your name!');
+                return;
+            }
+
+            userName = nameInput;
+            document.getElementById('playerName').textContent = userName;
+
+            const newUserData = {
+                name: userName,
+                createdAt: Date.now(),
+                highScores: {}
+            };
+
+            // Always save locally first
+            localStorage.setItem('richardUserProfile', JSON.stringify(newUserData));
+            sessionStorage.setItem('richardUserData', JSON.stringify({
+                userId: userId,
+                userName: userName,
+                highScores: {}
+            }));
+
+            // Try to save to Firebase (but don't block on it)
+            try {
+                const userRef = window.firebaseRef(window.firebaseDB, 'users/' + userId);
+                await window.firebaseSet(userRef, newUserData);
+            } catch (error) {
+                console.warn('Could not sync with Firebase, but data is saved locally:', error);
+            }
+
+            document.getElementById('welcomeModal').style.display = 'none';
+        }
+
+        function openSettings() {
+            document.getElementById('settingsNameInput').value = userName;
+            document.getElementById('userIdDisplay').textContent = userId || 'Not set';
+            document.getElementById('settingsModal').style.display = 'flex';
+        }
+
+        function closeSettings() {
+            document.getElementById('settingsModal').style.display = 'none';
+        }
+
+        async function updateUserName() {
+            const nameInput = document.getElementById('settingsNameInput').value.trim();
+
+            if (!nameInput) {
+                alert('Please enter a name!');
+                return;
+            }
+
+            userName = nameInput;
+            document.getElementById('playerName').textContent = userName;
+
+            // Update local storage
+            const localData = JSON.parse(localStorage.getItem('richardUserProfile') || '{}');
+            localData.name = userName;
+            localData.updatedAt = Date.now();
+            localStorage.setItem('richardUserProfile', JSON.stringify(localData));
+
+            // Update sessionStorage
+            const currentData = JSON.parse(sessionStorage.getItem('richardUserData') || '{}');
+            currentData.userName = userName;
+            sessionStorage.setItem('richardUserData', JSON.stringify(currentData));
+
+            // Try to update Firebase (but don't block on it)
+            try {
+                const userRef = window.firebaseRef(window.firebaseDB, 'users/' + userId);
+                await window.firebaseUpdate(userRef, {
+                    name: userName,
+                    updatedAt: Date.now()
+                });
+            } catch (error) {
+                console.warn('Could not sync with Firebase, but data is saved locally:', error);
+            }
+
+            closeSettings();
+            alert('Name updated successfully!');
+        }
+
+        // Close modals when clicking outside
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal')) {
+                // Don't close welcome modal by clicking outside
+                if (e.target.id === 'settingsModal') {
+                    closeSettings();
+                }
+            }
+        });
+
+        // Game navigation
         function playGame(gameNumber) {
             const games = [
                 'fetch-game.html',
-                'bone-collector.html',
+                'bone-collector-game.html',
                 'ball-chase.html',
                 'corgi-run.html',
                 'park-adventure.html',
@@ -245,8 +593,16 @@
                 'cuddle-time.html'
             ];
 
-            // Game 1 (Fetch Game) is ready!
-            if (gameNumber === 1) {
+            // Games 1 and 2 are ready!
+            if (gameNumber === 1 || gameNumber === 2) {
+                // Ensure user data is in sessionStorage before navigating
+                if (!sessionStorage.getItem('richardUserData')) {
+                    sessionStorage.setItem('richardUserData', JSON.stringify({
+                        userId: userId,
+                        userName: userName,
+                        highScores: {}
+                    }));
+                }
                 window.location.href = games[gameNumber - 1];
             } else {
                 // Other games coming soon
@@ -259,10 +615,21 @@
             item.addEventListener('touchstart', function() {
                 this.style.transform = 'scale(0.95)';
             });
-            
+
             item.addEventListener('touchend', function() {
                 this.style.transform = '';
             });
+        });
+
+        // Allow Enter key to submit name
+        document.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                if (document.getElementById('welcomeModal').style.display === 'flex') {
+                    saveUserName();
+                } else if (document.getElementById('settingsModal').style.display === 'flex') {
+                    updateUserName();
+                }
+            }
         });
     </script>
 </body>

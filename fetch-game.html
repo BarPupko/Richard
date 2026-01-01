@@ -185,6 +185,7 @@
     <div class="header">
         <h1>🎾 Richard's Fetch Game 🐕</h1>
         <div class="score-board">
+            <div>Player: <span id="playerName">...</span></div>
             <div>Score: <span id="score">0</span></div>
             <div>Lives: <span id="lives">3</span> ❤️</div>
         </div>
@@ -201,11 +202,46 @@
 
         <div class="game-over" id="gameOver">
             <h2>Game Over!</h2>
-            <p style="font-size: 1.5em; color: #333;">Final Score: <span id="finalScore">0</span> 🏆</p>
+            <p style="font-size: 1.5em; color: #333;">Final Score: <span id="finalScore">0</span> 🏆<br>
+            <span id="highScoreMessage" style="font-size: 0.8em;"></span></p>
+
+            <!-- Leaderboard -->
+            <div id="leaderboard" style="margin: 20px 0; max-height: 300px; overflow-y: auto;">
+                <h3 style="color: #8b5a2b; margin-bottom: 15px;">🏆 Top 10 Players 🏆</h3>
+                <div id="leaderboardList" style="text-align: left; font-size: 0.9em;">
+                    <p style="text-align: center; color: #999;">Loading leaderboard...</p>
+                </div>
+            </div>
+
             <button class="start-btn" onclick="restartGame()">Play Again</button>
             <button class="back-btn" onclick="goBack()">Back to Menu</button>
         </div>
     </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getDatabase, ref, update, get } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDYrFZbFzAyoBBXJoX83Wq_CumP6NYie64",
+            authDomain: "richardgame-67766.firebaseapp.com",
+            databaseURL: "https://richardgame-67766-default-rtdb.firebaseio.com",
+            projectId: "richardgame-67766",
+            storageBucket: "richardgame-67766.firebasestorage.app",
+            messagingSenderId: "886284486792",
+            appId: "1:886284486792:web:f797fe51368861eab8f73d",
+            measurementId: "G-D5K95ZN5GC"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+
+        window.firebaseDB = database;
+        window.firebaseRef = ref;
+        window.firebaseUpdate = update;
+        window.firebaseGet = get;
+    </script>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
@@ -218,6 +254,133 @@
         }
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
+
+        // User management - Get data from main index page
+        let userId = null;
+        let userName = 'Player';
+        let userHighScore = 0;
+
+        function loadUserData() {
+            const userDataStr = sessionStorage.getItem('richardUserData');
+            if (userDataStr) {
+                try {
+                    const userData = JSON.parse(userDataStr);
+                    userId = userData.userId;
+                    userName = userData.userName || 'Player';
+                    userHighScore = userData.highScores?.fetchGame || 0;
+                    document.getElementById('playerName').textContent = userName;
+                } catch (error) {
+                    console.error('Error parsing user data:', error);
+                    document.getElementById('playerName').textContent = 'Player';
+                }
+            } else {
+                alert('Please start from the main menu!');
+                window.location.href = 'richard-index.html';
+            }
+        }
+
+        async function saveHighScore(newScore) {
+            if (newScore > userHighScore) {
+                userHighScore = newScore;
+
+                // Update sessionStorage
+                const userDataStr = sessionStorage.getItem('richardUserData');
+                if (userDataStr) {
+                    const userData = JSON.parse(userDataStr);
+                    userData.highScores = userData.highScores || {};
+                    userData.highScores.fetchGame = newScore;
+                    sessionStorage.setItem('richardUserData', JSON.stringify(userData));
+                }
+
+                // Update localStorage
+                const localData = JSON.parse(localStorage.getItem('richardUserProfile') || '{}');
+                localData.highScores = localData.highScores || {};
+                localData.highScores.fetchGame = newScore;
+                localStorage.setItem('richardUserProfile', JSON.stringify(localData));
+
+                // Try to sync with Firebase (but don't block on it)
+                try {
+                    const userRef = window.firebaseRef(window.firebaseDB, 'users/' + userId + '/highScores');
+                    await window.firebaseUpdate(userRef, {
+                        fetchGame: newScore,
+                        lastPlayed: Date.now()
+                    });
+                } catch (error) {
+                    console.warn('Could not sync high score with Firebase, but saved locally:', error);
+                }
+
+                return true;
+            }
+            return false;
+        }
+
+        async function loadLeaderboard() {
+            const leaderboardList = document.getElementById('leaderboardList');
+
+            try {
+                // Fetch all users
+                const usersRef = window.firebaseRef(window.firebaseDB, 'users');
+                const snapshot = await window.firebaseGet(usersRef);
+
+                if (!snapshot.exists()) {
+                    leaderboardList.innerHTML = '<p style="text-align: center; color: #999;">No leaderboard data available yet.</p>';
+                    return;
+                }
+
+                // Convert to array and filter users with fetchGame scores
+                const users = [];
+                snapshot.forEach((childSnapshot) => {
+                    const userData = childSnapshot.val();
+                    const score = userData.highScores?.fetchGame;
+
+                    if (score && score > 0) {
+                        users.push({
+                            userId: childSnapshot.key,
+                            name: userData.name || 'Anonymous',
+                            score: score
+                        });
+                    }
+                });
+
+                // Sort by score (highest is best)
+                users.sort((a, b) => b.score - a.score);
+
+                // Take top 10
+                const top10 = users.slice(0, 10);
+
+                if (top10.length === 0) {
+                    leaderboardList.innerHTML = '<p style="text-align: center; color: #999;">No scores recorded yet. Be the first!</p>';
+                    return;
+                }
+
+                // Display leaderboard
+                let html = '<div style="background: #f5f5f5; border-radius: 10px; padding: 10px;">';
+                top10.forEach((user, index) => {
+                    const isCurrentUser = user.userId === userId;
+                    const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+                    const bgColor = isCurrentUser ? '#fffacd' : 'white';
+                    const fontWeight = isCurrentUser ? 'bold' : 'normal';
+
+                    html += `
+                        <div style="background: ${bgColor}; padding: 8px 12px; margin: 5px 0; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; font-weight: ${fontWeight};">
+                            <span style="color: #8b5a2b; font-size: 1.1em; width: 30px;">${medal}</span>
+                            <span style="flex: 1; color: #333;">${user.name}${isCurrentUser ? ' (You)' : ''}</span>
+                            <span style="color: #666; font-weight: bold;">${user.score} pts</span>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+
+                leaderboardList.innerHTML = html;
+
+            } catch (error) {
+                console.warn('Could not load leaderboard:', error);
+                leaderboardList.innerHTML = '<p style="text-align: center; color: #999;">Leaderboard unavailable (offline mode)</p>';
+            }
+        }
+
+        // Load user data on page load
+        loadUserData();
 
         // Game variables
         let score = 0;
@@ -471,10 +634,30 @@
             updateCorgiPosition();
         }
 
-        function endGame() {
+        async function endGame() {
             gameRunning = false;
             clearInterval(spawnInterval);
             document.getElementById('finalScore').textContent = score;
+
+            // Check and save high score
+            const isNewHighScore = await saveHighScore(score);
+            const highScoreMsg = document.getElementById('highScoreMessage');
+
+            if (isNewHighScore) {
+                highScoreMsg.textContent = '🎊 NEW PERSONAL BEST! 🎊';
+                highScoreMsg.style.color = '#ff6347';
+                highScoreMsg.style.fontWeight = 'bold';
+            } else if (userHighScore > 0) {
+                highScoreMsg.textContent = `Your best score: ${userHighScore}`;
+                highScoreMsg.style.color = '#666';
+                highScoreMsg.style.fontWeight = 'normal';
+            } else {
+                highScoreMsg.textContent = '';
+            }
+
+            // Load and display leaderboard
+            await loadLeaderboard();
+
             document.getElementById('gameOver').style.display = 'block';
         }
 
