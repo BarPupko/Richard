@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fetch Game - Cute Richard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Comic Sans MS', 'Arial', sans-serif;
+            background: #d4a574;
+            background-image: 
+                linear-gradient(90deg, rgba(139, 90, 43, 0.1) 1px, transparent 1px),
+                linear-gradient(rgba(139, 90, 43, 0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .wood-texture {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                repeating-linear-gradient(
+                    90deg,
+                    #daa520 0px,
+                    #d4a574 20px,
+                    #c9963d 40px,
+                    #daa520 60px
+                );
+            opacity: 0.6;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .header {
+            background: rgba(139, 90, 43, 0.8);
+            color: white;
+            padding: 15px;
+            text-align: center;
+            position: relative;
+            z-index: 10;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+
+        .header h1 {
+            font-size: 1.8em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .score-board {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 10px;
+            font-size: 1.2em;
+        }
+
+        .game-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        .start-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 100;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .start-screen h2 {
+            color: #8b5a2b;
+            margin-bottom: 20px;
+            font-size: 2em;
+        }
+
+        .start-screen p {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+
+        .start-btn {
+            background: linear-gradient(135deg, #ffa500, #ff6347);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.5em;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
+            font-family: 'Comic Sans MS', 'Arial', sans-serif;
+        }
+
+        .start-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 7px 20px rgba(0,0,0,0.4);
+        }
+
+        .start-btn:active {
+            transform: scale(0.95);
+        }
+
+        .game-over {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 100;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .game-over h2 {
+            color: #8b5a2b;
+            margin-bottom: 20px;
+            font-size: 2.5em;
+        }
+
+        .back-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1.2em;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
+            font-family: 'Comic Sans MS', 'Arial', sans-serif;
+            margin: 10px;
+        }
+
+        .back-btn:hover {
+            transform: scale(1.05);
+        }
+
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 1.4em;
+            }
+            .score-board {
+                font-size: 1em;
+            }
+            .start-screen {
+                padding: 30px 20px;
+            }
+            .start-screen h2 {
+                font-size: 1.5em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="wood-texture"></div>
+    
+    <div class="header">
+        <h1>🎾 Richard's Fetch Game 🐕</h1>
+        <div class="score-board">
+            <div>Score: <span id="score">0</span></div>
+            <div>Lives: <span id="lives">3</span> ❤️</div>
+        </div>
+    </div>
+
+    <div class="game-container">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div class="start-screen" id="startScreen">
+            <h2>🐶 Help Richard Catch the Balls! 🎾</h2>
+            <p>Tap or click to move Richard left and right<br>Catch the tennis balls and avoid the bones!</p>
+            <button class="start-btn" onclick="startGame()">Play Now!</button>
+        </div>
+
+        <div class="game-over" id="gameOver">
+            <h2>Game Over!</h2>
+            <p style="font-size: 1.5em; color: #333;">Final Score: <span id="finalScore">0</span> 🏆</p>
+            <button class="start-btn" onclick="restartGame()">Play Again</button>
+            <button class="back-btn" onclick="goBack()">Back to Menu</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Set canvas size
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight - document.querySelector('.header').offsetHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // Game variables
+        let score = 0;
+        let lives = 3;
+        let gameRunning = false;
+        let fallingObjects = [];
+        let corgi = {
+            x: canvas.width / 2,
+            y: canvas.height - 120,
+            width: 80,
+            height: 60,
+            speed: 8
+        };
+
+        // Draw corgi (painted style)
+        function drawCorgi(x, y) {
+            ctx.save();
+            
+            // Body
+            ctx.fillStyle = '#d4a373';
+            ctx.beginPath();
+            ctx.ellipse(x, y, 40, 25, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // White belly
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.ellipse(x, y + 5, 25, 15, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Head
+            ctx.fillStyle = '#d4a373';
+            ctx.beginPath();
+            ctx.ellipse(x - 25, y - 10, 20, 18, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // White face marking
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.ellipse(x - 25, y - 8, 12, 10, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Ears
+            ctx.fillStyle = '#d4a373';
+            // Left ear
+            ctx.beginPath();
+            ctx.moveTo(x - 35, y - 20);
+            ctx.lineTo(x - 45, y - 35);
+            ctx.lineTo(x - 30, y - 25);
+            ctx.closePath();
+            ctx.fill();
+            // Right ear
+            ctx.beginPath();
+            ctx.moveTo(x - 15, y - 20);
+            ctx.lineTo(x - 5, y - 35);
+            ctx.lineTo(x - 20, y - 25);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Eyes
+            ctx.fillStyle = '#000000';
+            ctx.beginPath();
+            ctx.arc(x - 30, y - 12, 3, 0, Math.PI * 2);
+            ctx.arc(x - 20, y - 12, 3, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Nose
+            ctx.fillStyle = '#000000';
+            ctx.beginPath();
+            ctx.arc(x - 25, y - 5, 4, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Smile
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(x - 25, y - 3, 6, 0.2, Math.PI - 0.2);
+            ctx.stroke();
+            
+            // Legs
+            ctx.fillStyle = '#d4a373';
+            ctx.fillRect(x - 25, y + 15, 8, 15);
+            ctx.fillRect(x - 5, y + 15, 8, 15);
+            ctx.fillRect(x + 15, y + 15, 8, 15);
+            ctx.fillRect(x + 35, y + 15, 8, 15);
+            
+            // Tail
+            ctx.strokeStyle = '#d4a373';
+            ctx.lineWidth = 8;
+            ctx.beginPath();
+            ctx.moveTo(x + 40, y);
+            ctx.quadraticCurveTo(x + 50, y - 10, x + 45, y - 20);
+            ctx.stroke();
+            
+            ctx.restore();
+        }
+
+        // Draw tennis ball
+        function drawTennisBall(x, y) {
+            ctx.fillStyle = '#ccff00';
+            ctx.beginPath();
+            ctx.arc(x, y, 15, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Curved line on ball
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(x, y, 15, 0.5, Math.PI - 0.5, false);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(x, y, 15, Math.PI + 0.5, Math.PI * 2 - 0.5, false);
+            ctx.stroke();
+        }
+
+        // Draw bone
+        function drawBone(x, y) {
+            ctx.fillStyle = '#f5f5dc';
+            ctx.beginPath();
+            // Left circle
+            ctx.arc(x - 12, y, 6, 0, Math.PI * 2);
+            ctx.fill();
+            // Right circle
+            ctx.arc(x + 12, y, 6, 0, Math.PI * 2);
+            ctx.fill();
+            // Middle rectangle
+            ctx.fillRect(x - 10, y - 3, 20, 6);
+            
+            // Outline
+            ctx.strokeStyle = '#d2b48c';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(x - 12, y, 6, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(x + 12, y, 6, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        // Create falling object
+        function createFallingObject() {
+            const isBall = Math.random() > 0.3; // 70% chance of ball
+            fallingObjects.push({
+                x: Math.random() * (canvas.width - 40) + 20,
+                y: -30,
+                speed: 2 + Math.random() * 2,
+                isBall: isBall
+            });
+        }
+
+        // Update game
+        function update() {
+            if (!gameRunning) return;
+
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw corgi
+            drawCorgi(corgi.x, corgi.y);
+
+            // Update and draw falling objects
+            for (let i = fallingObjects.length - 1; i >= 0; i--) {
+                const obj = fallingObjects[i];
+                obj.y += obj.speed;
+
+                // Draw object
+                if (obj.isBall) {
+                    drawTennisBall(obj.x, obj.y);
+                } else {
+                    drawBone(obj.x, obj.y);
+                }
+
+                // Check collision with corgi
+                if (obj.y > corgi.y - 20 && obj.y < corgi.y + 40 &&
+                    obj.x > corgi.x - 50 && obj.x < corgi.x + 50) {
+                    if (obj.isBall) {
+                        score += 10;
+                        document.getElementById('score').textContent = score;
+                    } else {
+                        lives--;
+                        document.getElementById('lives').textContent = lives;
+                        if (lives <= 0) {
+                            endGame();
+                        }
+                    }
+                    fallingObjects.splice(i, 1);
+                }
+                // Remove if off screen
+                else if (obj.y > canvas.height) {
+                    if (obj.isBall) {
+                        lives--;
+                        document.getElementById('lives').textContent = lives;
+                        if (lives <= 0) {
+                            endGame();
+                        }
+                    }
+                    fallingObjects.splice(i, 1);
+                }
+            }
+
+            requestAnimationFrame(update);
+        }
+
+        // Mouse/Touch control
+        let mouseX = canvas.width / 2;
+
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            mouseX = e.clientX - rect.left;
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            mouseX = e.touches[0].clientX - rect.left;
+        });
+
+        // Update corgi position
+        function updateCorgiPosition() {
+            if (!gameRunning) return;
+            
+            const targetX = mouseX;
+            const dx = targetX - corgi.x;
+            
+            if (Math.abs(dx) > 5) {
+                corgi.x += dx * 0.15;
+            }
+            
+            // Keep corgi on screen
+            corgi.x = Math.max(50, Math.min(canvas.width - 50, corgi.x));
+            
+            requestAnimationFrame(updateCorgiPosition);
+        }
+
+        // Spawn objects periodically
+        let spawnInterval;
+
+        function startGame() {
+            document.getElementById('startScreen').style.display = 'none';
+            gameRunning = true;
+            score = 0;
+            lives = 3;
+            fallingObjects = [];
+            corgi.x = canvas.width / 2;
+            
+            document.getElementById('score').textContent = score;
+            document.getElementById('lives').textContent = lives;
+            
+            spawnInterval = setInterval(createFallingObject, 1000);
+            update();
+            updateCorgiPosition();
+        }
+
+        function endGame() {
+            gameRunning = false;
+            clearInterval(spawnInterval);
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('gameOver').style.display = 'block';
+        }
+
+        function restartGame() {
+            document.getElementById('gameOver').style.display = 'none';
+            startGame();
+        }
+
+        function goBack() {
+            window.location.href = 'richard-index.html';
+        }
+    </script>
+</body>
+</html>

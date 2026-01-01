@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cute Richard - Corgi Adventures</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Comic Sans MS', 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            max-width: 500px;
+            width: 100%;
+            padding: 10px;
+        }
+
+        .grid-item {
+            aspect-ratio: 1/1;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+
+        .grid-item:hover {
+            transform: translateY(-5px) scale(1.05);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        }
+
+        .grid-item:nth-child(1) { background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); }
+        .grid-item:nth-child(2) { background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%); }
+        .grid-item:nth-child(3) { background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%); }
+        .grid-item:nth-child(4) { background: linear-gradient(135deg, #fad0c4 0%, #ffd1ff 100%); }
+        .grid-item:nth-child(5) { background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); }
+        .grid-item:nth-child(6) { background: linear-gradient(135deg, #ff9a9e 0%, #fad0c4 100%); }
+        .grid-item:nth-child(7) { background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%); }
+        .grid-item:nth-child(8) { background: linear-gradient(135deg, #d299c2 0%, #fef9d7 100%); }
+        .grid-item:nth-child(9) { background: linear-gradient(135deg, #fdcbf1 0%, #e6dee9 100%); }
+
+        .corgi-emoji {
+            font-size: 4em;
+            margin-bottom: 10px;
+            animation: bounce 2s infinite;
+        }
+
+        .grid-item:nth-child(even) .corgi-emoji {
+            animation-delay: 0.5s;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .item-title {
+            font-size: 0.9em;
+            font-weight: bold;
+            color: #333;
+            text-align: center;
+            padding: 0 10px;
+        }
+
+        .play-icon {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            width: 35px;
+            height: 35px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2em;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+            opacity: 0;
+            transform: scale(0);
+        }
+
+        .grid-item:hover .play-icon {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .play-icon::before {
+            content: '🎮';
+        }
+
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            color: white;
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .header p {
+                font-size: 1em;
+            }
+
+            .grid-container {
+                gap: 10px;
+            }
+
+            .corgi-emoji {
+                font-size: 3em;
+            }
+
+            .item-title {
+                font-size: 0.8em;
+            }
+
+            .play-icon {
+                width: 30px;
+                height: 30px;
+                font-size: 1em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🐕 Cute Richard 🐕</h1>
+        <p>Choose Your Corgi Adventure!</p>
+    </div>
+
+    <div class="grid-container">
+        <div class="grid-item" onclick="playGame(1)">
+            <div class="corgi-emoji">🐶</div>
+            <div class="item-title">Fetch Game</div>
+            <div class="play-icon"></div>
+        </div>
+
+        <div class="grid-item" onclick="playGame(2)">
+            <div class="corgi-emoji">🦴</div>
+            <div class="item-title">Bone Collector</div>
+            <div class="play-icon"></div>
+        </div>
+
+        <div class="grid-item" onclick="playGame(3)">
+            <div class="corgi-emoji">🎾</div>
+            <div class="item-title">Ball Chase</div>
+            <div class="play-icon"></div>
+        </div>
+
+        <div class="grid-item" onclick="playGame(4)">
+            <div class="corgi-emoji">🏃</div>
+            <div class="item-title">Corgi Run</div>
+            <div class="play-icon"></div>
+        </div>
+
+        <div class="grid-item" onclick="playGame(5)">
+            <div class="corgi-emoji">🌳</div>
+            <div class="item-title">Park Adventure</div>
+            <div class="play-icon"></div>
+        </div>
+
+        <div class="grid-item" onclick="playGame(6)">
+            <div class="corgi-emoji">🍖</div>
+            <div class="item-title">Treat Hunt</div>
+            <div class="play-icon"></div>
+        </div>
+
+        <div class="grid-item" onclick="playGame(7)">
+            <div class="corgi-emoji">💤</div>
+            <div class="item-title">Nap Time</div>
+            <div class="play-icon"></div>
+        </div>
+
+        <div class="grid-item" onclick="playGame(8)">
+            <div class="corgi-emoji">🎉</div>
+            <div class="item-title">Party Tricks</div>
+            <div class="play-icon"></div>
+        </div>
+
+        <div class="grid-item" onclick="playGame(9)">
+            <div class="corgi-emoji">❤️</div>
+            <div class="item-title">Cuddle Time</div>
+            <div class="play-icon"></div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>Tap any tile to play with Richard! 🐾</p>
+    </div>
+
+    <script>
+        function playGame(gameNumber) {
+            const games = [
+                'fetch-game.html',
+                'bone-collector.html',
+                'ball-chase.html',
+                'corgi-run.html',
+                'park-adventure.html',
+                'treat-hunt.html',
+                'nap-time.html',
+                'party-tricks.html',
+                'cuddle-time.html'
+            ];
+
+            // Game 1 (Fetch Game) is ready!
+            if (gameNumber === 1) {
+                window.location.href = games[gameNumber - 1];
+            } else {
+                // Other games coming soon
+                alert(`🐕 Richard is ready to play "${document.querySelectorAll('.item-title')[gameNumber-1].textContent}"!\n\nGame coming soon! 🎮`);
+            }
+        }
+
+        // Add touch feedback for mobile
+        document.querySelectorAll('.grid-item').forEach(item => {
+            item.addEventListener('touchstart', function() {
+                this.style.transform = 'scale(0.95)';
+            });
+            
+            item.addEventListener('touchend', function() {
+                this.style.transform = '';
+            });
+        });
+    </script>
+</body>
+</html>
