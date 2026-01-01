@@ -421,6 +421,11 @@
         const cellSize = 40;
         let cols, rows;
 
+        // Wall collision penalty
+        let wallCollisionTimer = 0;
+        let isInWall = false;
+        const WALL_COLLISION_TIMEOUT = 3000; // 3 seconds in milliseconds
+
         // Richard (corgi) object
         let richard = {
             x: 1,
@@ -576,8 +581,14 @@
         }
 
         // Update game
+        let lastFrameTime = Date.now();
+
         function update() {
             if (!gameRunning) return;
+
+            const currentTime = Date.now();
+            const deltaTime = currentTime - lastFrameTime;
+            lastFrameTime = currentTime;
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -630,13 +641,48 @@
                 }
             }
 
+            // Check if Richard is currently in a wall
+            const richardGridX = Math.floor(richard.x);
+            const richardGridY = Math.floor(richard.y);
+            const richardIsInWall = hasWall(richardGridX, richardGridY);
+
+            if (richardIsInWall) {
+                if (!isInWall) {
+                    // Just entered wall
+                    isInWall = true;
+                    wallCollisionTimer = 0;
+                } else {
+                    // Still in wall - accumulate time
+                    wallCollisionTimer += deltaTime;
+
+                    // Check if exceeded timeout
+                    if (wallCollisionTimer >= WALL_COLLISION_TIMEOUT) {
+                        failGame();
+                        return;
+                    }
+                }
+
+                // Draw warning overlay
+                const remainingTime = Math.ceil((WALL_COLLISION_TIMEOUT - wallCollisionTimer) / 1000);
+                ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                ctx.font = 'bold 30px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(`⚠️ STUCK IN WALL! ${remainingTime}s ⚠️`, canvas.width / 2, 50);
+            } else {
+                // Not in wall - reset timer
+                if (isInWall) {
+                    isInWall = false;
+                    wallCollisionTimer = 0;
+                }
+            }
+
             // Draw Richard
             drawRichard(richard.x, richard.y);
 
             // Check bone collection
-            const richardGridX = Math.floor(richard.x);
-            const richardGridY = Math.floor(richard.y);
-
             bones.forEach(bone => {
                 if (!bone.collected && bone.x === richardGridX && bone.y === richardGridY) {
                     bone.collected = true;
@@ -737,6 +783,11 @@
             bonesCollected = 0;
             document.getElementById('bonesCollected').textContent = bonesCollected;
 
+            // Reset wall collision tracking
+            wallCollisionTimer = 0;
+            isInWall = false;
+            lastFrameTime = Date.now();
+
             richard.x = 1;
             richard.y = 1;
             richard.targetX = 1;
@@ -758,6 +809,11 @@
 
             const finalTime = gameTimer;
             document.getElementById('finalTime').textContent = finalTime;
+
+            // Update game over title for successful completion
+            document.querySelector('#gameOverModal h2').textContent = '🎉 Congratulations! 🎉';
+            document.querySelector('#gameOverModal p').innerHTML = `You collected all the bones in <span id="finalTime">${finalTime}</span> seconds! 🏆<br>
+                <span id="highScoreMessage"></span>`;
 
             // Check and save high score
             const isNewHighScore = await saveHighScore(finalTime);
@@ -781,8 +837,27 @@
             document.getElementById('gameOverModal').style.display = 'block';
         }
 
+        function failGame() {
+            gameRunning = false;
+            stopTimer();
+
+            // Update game over modal for failure
+            document.querySelector('#gameOverModal h2').textContent = '💥 Game Over! 💥';
+            document.querySelector('#gameOverModal p').innerHTML = `You were stuck in a wall for too long!<br>
+                Bones collected: ${bonesCollected}/${totalBones} 🦴<br>
+                Time survived: ${gameTimer}s ⏱️`;
+
+            // Hide leaderboard on failure
+            document.getElementById('leaderboard').style.display = 'none';
+
+            document.getElementById('gameOverModal').style.display = 'block';
+        }
+
         function restartGame() {
             document.getElementById('gameOverModal').style.display = 'none';
+            document.getElementById('leaderboard').style.display = 'block'; // Show leaderboard again
+            wallCollisionTimer = 0; // Reset wall collision timer
+            isInWall = false; // Reset wall state
             startGame();
         }
 
