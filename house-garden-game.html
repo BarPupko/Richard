@@ -150,13 +150,13 @@
 
         <!-- Start Screen -->
         <div class="modal" id="startScreen">
-            <h2>🐶 Help Richard Fetch His Toys! 🎾</h2>
-            <p>Move Richard between the house and garden!<br><br>
-            🏠 Grab toys from inside the house<br>
-            🚪 Wait for the door to open (don't hit it!)<br>
-            🌳 Bring them to the garden area<br>
-            ❤️ You have 3 lives - be careful!<br><br>
-            <strong>Controls:</strong> Click/Tap or Arrow Keys/WASD</p>
+            <h2 style="font-size: 1.5em; margin-bottom: 15px;">🐶 Fetch His Toys! 🎾</h2>
+            <p style="font-size: 0.95em; line-height: 1.4; margin-bottom: 15px;">
+            🏠 Grab toys from the house<br>
+            🚪 Wait for the door to open<br>
+            🌳 Bring them to the garden<br>
+            ❤️ You have 3 lives!<br>
+            <strong>Controls:</strong> Click/Tap or Arrow Keys</p>
             <button class="btn" onclick="startGame()">Start Game!</button>
             <button class="btn btn-secondary btn-small" onclick="goBack()">Back to Menu</button>
         </div>
@@ -323,6 +323,8 @@
                     type: toyTypes[Math.floor(Math.random() * toyTypes.length)]
                 });
             }
+
+            console.log('Generated ' + houseItems.length + ' toys');
         }
 
         // Draw Richard
@@ -637,9 +639,26 @@
                 if (crossedDoor) {
                     // Trying to cross the center line
                     if (!inDoorArea) {
-                        // Not in door area - hitting the wall above or below the door
+                        // Not in door area - hitting the solid wall above or below the door
+                        // Lose a life for hitting the wall!
+                        lives--;
+                        document.getElementById('lives').textContent = lives;
+
                         richard.x = richard.prevX;
                         richard.targetX = richard.prevX;
+
+                        // Flash the screen red briefly
+                        ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                        // Check if game over
+                        if (lives <= 0) {
+                            gameRunning = false;
+                            setTimeout(() => {
+                                gameOver();
+                            }, 500);
+                            return;
+                        }
                     } else if (!doorOpen) {
                         // In door area but door is closed - lose a life!
                         lives--;
@@ -686,7 +705,8 @@
             }
 
             // Check item delivery (in garden with item)
-            if (richard.carryingItem && richard.x > canvas.width / 2 + 50) {
+            // Deliver when Richard crosses into the garden side (past the center wall)
+            if (richard.carryingItem && richard.x > canvas.width / 2 + 20) {
                 collectedToys.push(richard.carryingItem); // Add to collected toys array
                 richard.carryingItem = false;
                 itemsCollected++;
