@@ -313,7 +313,7 @@
             const houseTop = 50;
             const houseBottom = canvas.height - 50;
 
-            const toyTypes = ['bone', 'ball', 'fish', 'rope'];
+            const toyTypes = ['bone', 'ball', 'fish', 'liberty'];
 
             for (let i = 0; i < totalItems; i++) {
                 houseItems.push({
@@ -438,28 +438,53 @@
                 ctx.arc(x - 6 * scale, y - 2 * scale, 2 * scale, 0, Math.PI * 2);
                 ctx.fill();
 
-            } else if (type === 'rope') {
-                // Draw a rope toy
-                ctx.strokeStyle = '#CD853F';
-                ctx.lineWidth = 6 * scale;
-                ctx.lineCap = 'round';
+            } else if (type === 'liberty') {
+                // Draw a Statue of Liberty toy
+                // Base
+                ctx.fillStyle = '#A9A9A9';
+                ctx.fillRect(x - 8 * scale, y + 8 * scale, 16 * scale, 4 * scale);
+                // Body/robe
+                ctx.fillStyle = '#7CFC00';
                 ctx.beginPath();
-                ctx.moveTo(x - 12 * scale, y - 4 * scale);
-                ctx.quadraticCurveTo(x - 4 * scale, y + 4 * scale, x + 4 * scale, y - 4 * scale);
-                ctx.quadraticCurveTo(x + 12 * scale, y + 4 * scale, x + 15 * scale, y);
-                ctx.stroke();
-                // Frayed ends
+                ctx.moveTo(x, y - 10 * scale);
+                ctx.lineTo(x - 6 * scale, y + 8 * scale);
+                ctx.lineTo(x + 6 * scale, y + 8 * scale);
+                ctx.closePath();
+                ctx.fill();
+                // Head
+                ctx.fillStyle = '#7CFC00';
+                ctx.beginPath();
+                ctx.arc(x, y - 12 * scale, 3 * scale, 0, Math.PI * 2);
+                ctx.fill();
+                // Crown spikes
+                ctx.fillStyle = '#FFD700';
+                ctx.beginPath();
+                ctx.moveTo(x - 4 * scale, y - 13 * scale);
+                ctx.lineTo(x - 3 * scale, y - 18 * scale);
+                ctx.lineTo(x - 2 * scale, y - 13 * scale);
+                ctx.lineTo(x - 1 * scale, y - 19 * scale);
+                ctx.lineTo(x, y - 13 * scale);
+                ctx.lineTo(x + 1 * scale, y - 19 * scale);
+                ctx.lineTo(x + 2 * scale, y - 13 * scale);
+                ctx.lineTo(x + 3 * scale, y - 18 * scale);
+                ctx.lineTo(x + 4 * scale, y - 13 * scale);
+                ctx.closePath();
+                ctx.fill();
+                // Torch (right arm)
+                ctx.strokeStyle = '#FFD700';
                 ctx.lineWidth = 2 * scale;
                 ctx.beginPath();
-                ctx.moveTo(x - 15 * scale, y - 6 * scale);
-                ctx.lineTo(x - 12 * scale, y - 4 * scale);
-                ctx.moveTo(x - 14 * scale, y - 2 * scale);
-                ctx.lineTo(x - 12 * scale, y - 4 * scale);
-                ctx.moveTo(x + 15 * scale, y - 2 * scale);
-                ctx.lineTo(x + 18 * scale, y - 4 * scale);
-                ctx.moveTo(x + 15 * scale, y + 2 * scale);
-                ctx.lineTo(x + 18 * scale, y + 4 * scale);
+                ctx.moveTo(x, y - 8 * scale);
+                ctx.lineTo(x + 8 * scale, y - 14 * scale);
                 ctx.stroke();
+                // Flame
+                ctx.fillStyle = '#FF6347';
+                ctx.beginPath();
+                ctx.moveTo(x + 8 * scale, y - 14 * scale);
+                ctx.lineTo(x + 7 * scale, y - 18 * scale);
+                ctx.lineTo(x + 9 * scale, y - 18 * scale);
+                ctx.closePath();
+                ctx.fill();
             }
 
             ctx.restore();
