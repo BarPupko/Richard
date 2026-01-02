@@ -140,6 +140,7 @@
         <div class="score-board">
             <div>Player: <span id="playerName">...</span></div>
             <div>Items: <span id="itemsCollected">0</span>/10 📦</div>
+            <div>Lives: <span id="lives">3</span> ❤️</div>
             <div>Time: <span id="timer">0</span>s ⏱️</div>
         </div>
     </div>
@@ -149,11 +150,12 @@
 
         <!-- Start Screen -->
         <div class="modal" id="startScreen">
-            <h2>🐶 Help Richard Fetch Items! 📦</h2>
+            <h2>🐶 Help Richard Fetch His Toys! 🎾</h2>
             <p>Move Richard between the house and garden!<br><br>
-            🏠 Grab items from inside the house<br>
-            🚪 Wait for the door to open<br>
-            🌳 Bring them to the garden area<br><br>
+            🏠 Grab toys from inside the house<br>
+            🚪 Wait for the door to open (don't hit it!)<br>
+            🌳 Bring them to the garden area<br>
+            ❤️ You have 3 lives - be careful!<br><br>
             <strong>Controls:</strong> Click/Tap or Arrow Keys/WASD</p>
             <button class="btn" onclick="startGame()">Start Game!</button>
             <button class="btn btn-secondary btn-small" onclick="goBack()">Back to Menu</button>
@@ -161,10 +163,10 @@
 
         <!-- Game Over Modal -->
         <div class="modal" id="gameOverModal">
-            <h2>🎉 Great Job! 🎉</h2>
-            <p style="font-size: 1.3em; color: #333;">
-                You collected all items in <span id="finalTime">0</span> seconds! 🏆<br>
-                <span id="highScoreMessage"></span>
+            <h2 id="gameOverTitle">🎉 Great Job! 🎉</h2>
+            <p id="gameOverText" style="font-size: 1.5em; color: #333;">
+                Final Time: <span id="finalTime">0</span> seconds! 🏆<br>
+                <span id="highScoreMessage" style="font-size: 0.8em;"></span>
             </p>
 
             <button class="btn" onclick="restartGame()">Play Again</button>
@@ -278,6 +280,7 @@
         let totalItems = 10;
         let gameTimer = 0;
         let timerInterval = null;
+        let lives = 3;
 
         // Door state
         let doorOpen = false;
@@ -293,25 +296,31 @@
             width: 60,
             height: 45,
             speed: 0.15,
-            carryingItem: false
+            carryingItem: false,
+            prevX: canvas.width * 0.75 // Track previous x position
         };
 
         // Items in house
         let houseItems = [];
+        let collectedToys = []; // Toys that have been delivered to the box
 
         // Generate random items in house
         function generateItems() {
             houseItems = [];
+            collectedToys = [];
             const houseLeft = 50;
             const houseRight = canvas.width / 2 - 100;
             const houseTop = 50;
             const houseBottom = canvas.height - 50;
 
+            const toyTypes = ['bone', 'ball', 'fish', 'rope'];
+
             for (let i = 0; i < totalItems; i++) {
                 houseItems.push({
                     x: houseLeft + Math.random() * (houseRight - houseLeft),
                     y: houseTop + Math.random() * (houseBottom - houseTop),
-                    collected: false
+                    collected: false,
+                    type: toyTypes[Math.floor(Math.random() * toyTypes.length)]
                 });
             }
         }
@@ -365,25 +374,93 @@
             ctx.quadraticCurveTo(x + 37, y - 7, x + 33, y - 15);
             ctx.stroke();
 
-            // If carrying item, draw box above
+            // If carrying item, draw toy above
             if (richard.carryingItem) {
-                ctx.fillStyle = '#CD853F';
-                ctx.fillRect(x - 10, y - 35, 20, 20);
-                ctx.strokeStyle = '#8B4513';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(x - 10, y - 35, 20, 20);
+                drawToy(x, y - 30, richard.carryingItem);
             }
 
             ctx.restore();
         }
 
-        // Draw item (box)
-        function drawItem(x, y) {
-            ctx.fillStyle = '#CD853F';
-            ctx.fillRect(x - 10, y - 10, 20, 20);
-            ctx.strokeStyle = '#8B4513';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(x - 10, y - 10, 20, 20);
+        // Draw dog toy based on type
+        function drawToy(x, y, type, scale = 1) {
+            ctx.save();
+
+            if (type === 'bone') {
+                // Draw a bone
+                ctx.fillStyle = '#F5DEB3';
+                // Left end
+                ctx.beginPath();
+                ctx.arc(x - 12 * scale, y - 3 * scale, 4 * scale, 0, Math.PI * 2);
+                ctx.arc(x - 12 * scale, y + 3 * scale, 4 * scale, 0, Math.PI * 2);
+                ctx.fill();
+                // Right end
+                ctx.beginPath();
+                ctx.arc(x + 12 * scale, y - 3 * scale, 4 * scale, 0, Math.PI * 2);
+                ctx.arc(x + 12 * scale, y + 3 * scale, 4 * scale, 0, Math.PI * 2);
+                ctx.fill();
+                // Middle
+                ctx.fillRect(x - 10 * scale, y - 2 * scale, 20 * scale, 4 * scale);
+
+            } else if (type === 'ball') {
+                // Draw a tennis ball
+                ctx.fillStyle = '#CCFF00';
+                ctx.beginPath();
+                ctx.arc(x, y, 10 * scale, 0, Math.PI * 2);
+                ctx.fill();
+                // Tennis ball lines
+                ctx.strokeStyle = '#FFFFFF';
+                ctx.lineWidth = 2 * scale;
+                ctx.beginPath();
+                ctx.arc(x, y, 10 * scale, Math.PI * 0.3, Math.PI * 0.7);
+                ctx.arc(x, y, 10 * scale, Math.PI * 1.3, Math.PI * 1.7);
+                ctx.stroke();
+
+            } else if (type === 'fish') {
+                // Draw a toy fish
+                ctx.fillStyle = '#4169E1';
+                // Body
+                ctx.beginPath();
+                ctx.ellipse(x, y, 12 * scale, 6 * scale, 0, 0, Math.PI * 2);
+                ctx.fill();
+                // Tail
+                ctx.beginPath();
+                ctx.moveTo(x + 12 * scale, y);
+                ctx.lineTo(x + 18 * scale, y - 5 * scale);
+                ctx.lineTo(x + 18 * scale, y + 5 * scale);
+                ctx.closePath();
+                ctx.fill();
+                // Eye
+                ctx.fillStyle = '#000000';
+                ctx.beginPath();
+                ctx.arc(x - 6 * scale, y - 2 * scale, 2 * scale, 0, Math.PI * 2);
+                ctx.fill();
+
+            } else if (type === 'rope') {
+                // Draw a rope toy
+                ctx.strokeStyle = '#CD853F';
+                ctx.lineWidth = 6 * scale;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(x - 12 * scale, y - 4 * scale);
+                ctx.quadraticCurveTo(x - 4 * scale, y + 4 * scale, x + 4 * scale, y - 4 * scale);
+                ctx.quadraticCurveTo(x + 12 * scale, y + 4 * scale, x + 15 * scale, y);
+                ctx.stroke();
+                // Frayed ends
+                ctx.lineWidth = 2 * scale;
+                ctx.beginPath();
+                ctx.moveTo(x - 15 * scale, y - 6 * scale);
+                ctx.lineTo(x - 12 * scale, y - 4 * scale);
+                ctx.moveTo(x - 14 * scale, y - 2 * scale);
+                ctx.lineTo(x - 12 * scale, y - 4 * scale);
+                ctx.moveTo(x + 15 * scale, y - 2 * scale);
+                ctx.lineTo(x + 18 * scale, y - 4 * scale);
+                ctx.moveTo(x + 15 * scale, y + 2 * scale);
+                ctx.lineTo(x + 18 * scale, y + 4 * scale);
+                ctx.stroke();
+            }
+
+            ctx.restore();
         }
 
         // Draw door
@@ -417,6 +494,53 @@
             }
         }
 
+        // Draw collection box in garden
+        function drawCollectionBox() {
+            const boxX = canvas.width * 0.75;
+            const boxY = canvas.height - 150;
+            const boxWidth = 100;
+            const boxHeight = 100;
+
+            // Draw box
+            ctx.fillStyle = '#CD853F';
+            ctx.fillRect(boxX - boxWidth / 2, boxY, boxWidth, boxHeight);
+
+            // Box outline
+            ctx.strokeStyle = '#8B4513';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(boxX - boxWidth / 2, boxY, boxWidth, boxHeight);
+
+            // Draw diagonal lines for 3D effect
+            ctx.beginPath();
+            ctx.moveTo(boxX - boxWidth / 2, boxY);
+            ctx.lineTo(boxX - boxWidth / 2 + 10, boxY - 10);
+            ctx.lineTo(boxX + boxWidth / 2 + 10, boxY - 10);
+            ctx.lineTo(boxX + boxWidth / 2, boxY);
+            ctx.closePath();
+            ctx.fillStyle = '#DEB887';
+            ctx.fill();
+            ctx.stroke();
+
+            // Label
+            ctx.fillStyle = '#000000';
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('TOY BOX', boxX, boxY - 15);
+
+            // Draw collected toys inside the box
+            collectedToys.forEach((toy, index) => {
+                const row = Math.floor(index / 3);
+                const col = index % 3;
+                const toyX = boxX - 30 + col * 30;
+                const toyY = boxY + 80 - row * 25;
+
+                ctx.save();
+                ctx.globalAlpha = 0.8;
+                drawToy(toyX, toyY, toy, 0.7); // Smaller scale
+                ctx.restore();
+            });
+        }
+
         let lastFrameTime = Date.now();
 
         function update() {
@@ -436,13 +560,22 @@
             ctx.fillStyle = '#7cb342';
             ctx.fillRect(canvas.width / 2, 0, canvas.width / 2, canvas.height);
 
-            // Draw dividing line
+            // Draw dividing wall (with gap for door)
+            const doorCenterY = canvas.height / 2;
+            const doorHeight = 120;
+            const wallX = canvas.width / 2;
+
+            ctx.fillStyle = '#654321'; // Dark brown wall
             ctx.strokeStyle = '#000000';
             ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.moveTo(canvas.width / 2, 0);
-            ctx.lineTo(canvas.width / 2, canvas.height);
-            ctx.stroke();
+
+            // Wall above door
+            ctx.fillRect(wallX - 10, 0, 20, doorCenterY - doorHeight / 2);
+            ctx.strokeRect(wallX - 10, 0, 20, doorCenterY - doorHeight / 2);
+
+            // Wall below door
+            ctx.fillRect(wallX - 10, doorCenterY + doorHeight / 2, 20, canvas.height - (doorCenterY + doorHeight / 2));
+            ctx.strokeRect(wallX - 10, doorCenterY + doorHeight / 2, 20, canvas.height - (doorCenterY + doorHeight / 2));
 
             // Update door timer
             doorTimer += deltaTime;
@@ -452,13 +585,16 @@
                 nextDoorChange = 1000 + Math.random() * 2000; // 1-3 seconds
             }
 
+            // Draw collection box in garden
+            drawCollectionBox();
+
             // Draw door
             drawDoor();
 
             // Draw uncollected items
             houseItems.forEach(item => {
                 if (!item.collected) {
-                    drawItem(item.x, item.y);
+                    drawToy(item.x, item.y, item.type);
                 }
             });
 
@@ -468,17 +604,65 @@
             const distance = Math.sqrt(dx * dx + dy * dy);
 
             if (distance > 2) {
+                // Store previous position before moving
+                richard.prevX = richard.x;
+                const prevY = richard.y;
+
+                // Move Richard
                 richard.x += dx * richard.speed;
                 richard.y += dy * richard.speed;
 
-                // Check if trying to cross door when closed
-                const doorCenterX = canvas.width / 2;
-                const prevSide = richard.x < doorCenterX ? 'left' : 'right';
-                const newSide = richard.x < doorCenterX ? 'left' : 'right';
+                // Wall boundaries
+                const margin = 30;
+                const leftWall = margin;
+                const rightWall = canvas.width - margin;
+                const topWall = margin;
+                const bottomWall = canvas.height - margin;
 
-                if (prevSide !== newSide && !doorOpen) {
-                    // Block movement through closed door
-                    richard.x = doorCenterX + (prevSide === 'left' ? -5 : 5);
+                // Keep Richard within bounds
+                richard.x = Math.max(leftWall, Math.min(rightWall, richard.x));
+                richard.y = Math.max(topWall, Math.min(bottomWall, richard.y));
+
+                // Check if trying to cross the center dividing wall/door
+                const doorCenterX = canvas.width / 2;
+                const prevSide = richard.prevX < doorCenterX ? 'left' : 'right';
+                const newSide = richard.x < doorCenterX ? 'left' : 'right';
+                const crossedDoor = prevSide !== newSide;
+
+                // Door area bounds
+                const doorTop = canvas.height / 2 - 60;
+                const doorBottom = canvas.height / 2 + 60;
+                const inDoorArea = richard.y >= doorTop && richard.y <= doorBottom;
+
+                if (crossedDoor) {
+                    // Trying to cross the center line
+                    if (!inDoorArea) {
+                        // Not in door area - hitting the wall above or below the door
+                        richard.x = richard.prevX;
+                        richard.targetX = richard.prevX;
+                    } else if (!doorOpen) {
+                        // In door area but door is closed - lose a life!
+                        lives--;
+                        document.getElementById('lives').textContent = lives;
+
+                        // Push Richard back to their previous side
+                        richard.x = richard.prevX;
+                        richard.targetX = richard.prevX;
+
+                        // Flash the screen red briefly
+                        ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                        // Check if game over
+                        if (lives <= 0) {
+                            gameRunning = false; // Stop game immediately
+                            setTimeout(() => {
+                                gameOver();
+                            }, 500);
+                            return; // Exit update loop
+                        }
+                    }
+                    // If inDoorArea && doorOpen, allow crossing
                 }
             }
 
@@ -495,7 +679,7 @@
                         );
                         if (dist < 30) {
                             item.collected = true;
-                            richard.carryingItem = true;
+                            richard.carryingItem = item.type; // Store the toy type
                         }
                     }
                 });
@@ -503,6 +687,7 @@
 
             // Check item delivery (in garden with item)
             if (richard.carryingItem && richard.x > canvas.width / 2 + 50) {
+                collectedToys.push(richard.carryingItem); // Add to collected toys array
                 richard.carryingItem = false;
                 itemsCollected++;
                 document.getElementById('itemsCollected').textContent = itemsCollected;
@@ -516,13 +701,37 @@
             requestAnimationFrame(update);
         }
 
+        // Check if movement is blocked by closed door
+        function isDoorBlocking(fromX, toX, y) {
+            const doorCenterX = canvas.width / 2;
+            const doorTop = canvas.height / 2 - 60;
+            const doorBottom = canvas.height / 2 + 60;
+
+            // Check if y position is near door
+            const nearDoor = y >= doorTop && y <= doorBottom;
+            if (!nearDoor) return false;
+
+            // Check if trying to cross from one side to the other
+            const fromSide = fromX < doorCenterX ? 'left' : 'right';
+            const toSide = toX < doorCenterX ? 'left' : 'right';
+            const crossingDoor = fromSide !== toSide;
+
+            return crossingDoor && !doorOpen;
+        }
+
         // Input handling
         canvas.addEventListener('click', (e) => {
             if (!gameRunning) return;
 
             const rect = canvas.getBoundingClientRect();
-            richard.targetX = e.clientX - rect.left;
-            richard.targetY = e.clientY - rect.top;
+            const newTargetX = e.clientX - rect.left;
+            const newTargetY = e.clientY - rect.top;
+
+            // Only set target if not blocked by door
+            if (!isDoorBlocking(richard.x, newTargetX, richard.y)) {
+                richard.targetX = newTargetX;
+                richard.targetY = newTargetY;
+            }
         });
 
         canvas.addEventListener('touchstart', (e) => {
@@ -530,8 +739,14 @@
             e.preventDefault();
 
             const rect = canvas.getBoundingClientRect();
-            richard.targetX = e.touches[0].clientX - rect.left;
-            richard.targetY = e.touches[0].clientY - rect.top;
+            const newTargetX = e.touches[0].clientX - rect.left;
+            const newTargetY = e.touches[0].clientY - rect.top;
+
+            // Only set target if not blocked by door
+            if (!isDoorBlocking(richard.x, newTargetX, richard.y)) {
+                richard.targetX = newTargetX;
+                richard.targetY = newTargetY;
+            }
         });
 
         // Keyboard controls
@@ -547,15 +762,24 @@
         function handleKeyboard() {
             if (!gameRunning) return;
 
-            const speed = 5;
-            if (keys['ArrowUp'] || keys['w'] || keys['W']) richard.targetY = richard.y - speed;
-            if (keys['ArrowDown'] || keys['s'] || keys['S']) richard.targetY = richard.y + speed;
-            if (keys['ArrowLeft'] || keys['a'] || keys['A']) richard.targetX = richard.x - speed;
-            if (keys['ArrowRight'] || keys['d'] || keys['D']) richard.targetX = richard.x + speed;
+            const speed = 15; // Increased from 5 to 15 for faster movement
+            let newTargetX = richard.targetX;
+            let newTargetY = richard.targetY;
+
+            if (keys['ArrowUp'] || keys['w'] || keys['W']) newTargetY = richard.y - speed;
+            if (keys['ArrowDown'] || keys['s'] || keys['S']) newTargetY = richard.y + speed;
+            if (keys['ArrowLeft'] || keys['a'] || keys['A']) newTargetX = richard.x - speed;
+            if (keys['ArrowRight'] || keys['d'] || keys['D']) newTargetX = richard.x + speed;
 
             // Keep within bounds
-            richard.targetX = Math.max(30, Math.min(canvas.width - 30, richard.targetX));
-            richard.targetY = Math.max(30, Math.min(canvas.height - 30, richard.targetY));
+            newTargetX = Math.max(30, Math.min(canvas.width - 30, newTargetX));
+            newTargetY = Math.max(30, Math.min(canvas.height - 30, newTargetY));
+
+            // Only update target if not blocked by door
+            if (!isDoorBlocking(richard.x, newTargetX, newTargetY)) {
+                richard.targetX = newTargetX;
+                richard.targetY = newTargetY;
+            }
 
             requestAnimationFrame(handleKeyboard);
         }
@@ -582,12 +806,15 @@
 
             gameRunning = true;
             itemsCollected = 0;
+            lives = 3;
             document.getElementById('itemsCollected').textContent = itemsCollected;
+            document.getElementById('lives').textContent = lives;
 
             richard.x = canvas.width * 0.75;
             richard.y = canvas.height / 2;
             richard.targetX = richard.x;
             richard.targetY = richard.y;
+            richard.prevX = richard.x;
             richard.carryingItem = false;
 
             doorOpen = false;
@@ -603,6 +830,22 @@
             setTimeout(() => {
                 document.getElementById('controlsHint').style.display = 'none';
             }, 5000);
+        }
+
+        function gameOver() {
+            gameRunning = false;
+            stopTimer();
+
+            document.getElementById('gameOverTitle').textContent = 'Game Over!';
+            document.getElementById('gameOverText').innerHTML =
+                `You ran out of lives!<br><br>Items collected: ${itemsCollected}/${totalItems} 📦<br>Time survived: ${gameTimer}s ⏱️`;
+
+            const highScoreMsg = document.getElementById('highScoreMessage');
+            highScoreMsg.textContent = '';
+            highScoreMsg.style.color = '#666';
+            highScoreMsg.style.fontWeight = 'normal';
+
+            document.getElementById('gameOverModal').style.display = 'block';
         }
 
         async function endGame() {
@@ -626,6 +869,11 @@
             } else {
                 highScoreMsg.textContent = '';
             }
+
+            document.getElementById('gameOverTitle').textContent = '🎉 Great Job! 🎉';
+            document.getElementById('gameOverText').innerHTML =
+                `Final Time: ${finalTime} seconds! 🏆<br>
+                <span id="highScoreMessage">${highScoreMsg.innerHTML}</span>`;
 
             document.getElementById('gameOverModal').style.display = 'block';
         }
