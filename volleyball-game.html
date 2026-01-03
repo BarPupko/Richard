@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Volleyball Match - Cute Richard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Comic Sans MS', 'Arial', sans-serif;
+            background: linear-gradient(to bottom, #87CEEB 0%, #98D8E8 100%);
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: rgba(244, 164, 96, 0.9);
+            color: white;
+            padding: 15px;
+            text-align: center;
+            position: relative;
+            z-index: 10;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+
+        .header h1 {
+            font-size: 1.8em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .score-board {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 10px;
+            font-size: 1.3em;
+            font-weight: bold;
+        }
+
+        .player-score {
+            padding: 5px 20px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+        }
+
+        .game-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        /* Modals */
+        .modal {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 100;
+            background: rgba(255, 255, 255, 0.98);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            max-width: 500px;
+            width: 90%;
+        }
+
+        .modal h2 {
+            color: #f4a460;
+            margin-bottom: 20px;
+            font-size: 2em;
+        }
+
+        .modal p {
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 1.1em;
+            line-height: 1.6;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #f4a460, #d2691e);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.3em;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
+            font-family: 'Comic Sans MS', 'Arial', sans-serif;
+            margin: 5px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 7px 20px rgba(0,0,0,0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #999, #666);
+        }
+
+        .btn-small {
+            font-size: 1em;
+            padding: 10px 30px;
+        }
+
+        .status-message {
+            font-size: 1.2em;
+            color: #333;
+            margin: 15px 0;
+            font-weight: bold;
+        }
+
+        .waiting-spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(244, 164, 96, 0.3);
+            border-radius: 50%;
+            border-top-color: #f4a460;
+            animation: spin 1s ease-in-out infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .controls-hint {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 0.9em;
+            z-index: 50;
+            text-align: center;
+        }
+
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 1.3em;
+            }
+            .score-board {
+                font-size: 1em;
+            }
+            .modal {
+                padding: 20px;
+            }
+            .modal h2 {
+                font-size: 1.5em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🏐 Richard's Volleyball Match 🏐</h1>
+        <div class="score-board">
+            <div class="player-score">
+                🐶 <span id="player1Name">Player 1</span>: <span id="player1Score">0</span>
+            </div>
+            <div class="player-score">
+                🐕 <span id="player2Name">Player 2</span>: <span id="player2Score">0</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="game-container">
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- Matchmaking Screen -->
+        <div class="modal" id="matchmakingScreen">
+            <h2>🏐 Find Opponent</h2>
+            <p>Get ready to play volleyball!</p>
+            <div class="status-message" id="matchStatus">Click to join matchmaking</div>
+            <div class="waiting-spinner" id="waitingSpinner" style="display: none;"></div>
+            <button class="btn" id="findMatchBtn" onclick="findMatch()">Find Match</button>
+            <button class="btn btn-secondary btn-small" onclick="goBack()">Back to Menu</button>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div class="modal" id="gameOverModal">
+            <h2 id="gameOverTitle">🎉 Victory! 🎉</h2>
+            <p id="gameOverText" style="font-size: 1.5em; color: #333;">
+                Winner: <span id="winnerName">Player</span><br>
+                Final Score: <span id="finalScoreText">11-9</span>
+            </p>
+            <button class="btn" onclick="playAgain()">Play Again</button>
+            <button class="btn btn-secondary btn-small" onclick="goBack()">Back to Menu</button>
+        </div>
+
+        <div class="controls-hint" id="controlsHint" style="display: none;">
+            🐶 Brown: Arrow Keys + Space | 🐕 Black: WASD + W/Shift
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getDatabase, ref, set, update, onValue, remove, get, push, onDisconnect } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDYrFZbFzAyoBBXJoX83Wq_CumP6NYie64",
+            authDomain: "richardgame-67766.firebaseapp.com",
+            databaseURL: "https://richardgame-67766-default-rtdb.firebaseio.com",
+            projectId: "richardgame-67766",
+            storageBucket: "richardgame-67766.firebasestorage.app",
+            messagingSenderId: "886284486792",
+            appId: "1:886284486792:web:f797fe51368861eab8f73d",
+            measurementId: "G-D5K95ZN5GC"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+
+        // Export Firebase functions to window for use in main script
+        window.firebaseDB = database;
+        window.firebaseRef = ref;
+        window.firebaseSet = set;
+        window.firebaseUpdate = update;
+        window.firebaseOnValue = onValue;
+        window.firebaseRemove = remove;
+        window.firebaseGet = get;
+        window.firebasePush = push;
+        window.firebaseOnDisconnect = onDisconnect;
+    </script>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Resize canvas to fill container
+        function resizeCanvas() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // Get or create user ID
+        let userId = localStorage.getItem('richardUserId');
+        if (!userId) {
+            userId = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem('richardUserId', userId);
+        }
+
+        // Get user data
+        const userDataStr = sessionStorage.getItem('richardUserData') || localStorage.getItem('richardUserProfile');
+        const userData = userDataStr ? JSON.parse(userDataStr) : { name: 'Player' };
+        const userName = userData.name || 'Player';
+
+        // Game state
+        let gameState = 'matchmaking'; // 'matchmaking', 'waiting', 'playing', 'finished'
+        let currentGameId = null;
+        let playerRole = null; // 'player1' or 'player2'
+        let opponentName = 'Opponent';
+
+        // Game variables
+        const COURT_WIDTH = 800;
+        const COURT_HEIGHT = 400;
+        const NET_WIDTH = 10;
+        const NET_HEIGHT = 150;
+        const GROUND_Y = COURT_HEIGHT - 50;
+        const GRAVITY = 0.5;
+        const JUMP_POWER = 12;
+        const MOVE_SPEED = 5;
+        const WIN_SCORE = 11;
+
+        // Players
+        let player1 = {
+            x: 150,
+            y: GROUND_Y - 45,
+            width: 60,
+            height: 45,
+            velocityY: 0,
+            onGround: true,
+            score: 0,
+            color: 'brown'
+        };
+
+        let player2 = {
+            x: COURT_WIDTH - 150,
+            y: GROUND_Y - 45,
+            width: 60,
+            height: 45,
+            velocityY: 0,
+            onGround: true,
+            score: 0,
+            color: 'black'
+        };
+
+        // Ball
+        let ball = {
+            x: COURT_WIDTH / 2,
+            y: 100,
+            radius: 15,
+            velocityX: 0,
+            velocityY: 0,
+            active: false
+        };
+
+        // Input tracking
+        let keys = {};
+
+        // Show matchmaking screen initially
+        document.getElementById('matchmakingScreen').style.display = 'block';
+
+        // Back to menu function
+        function goBack() {
+            if (currentGameId) {
+                cleanupGame();
+            }
+            window.location.href = 'richard-index.html';
+        }
+
+        // ==========================================
+        // MULTIPLAYER MATCHMAKING SYSTEM
+        // ==========================================
+
+        /*
+         * HOW THE MATCHMAKING SYSTEM WORKS:
+         *
+         * 1. MATCHMAKING QUEUE
+         *    - When a player clicks "Find Match", they join a queue in Firebase
+         *    - Firebase structure: volleyball-matchmaking/{userId}
+         *    - Stores: {userId, name, timestamp, status: 'waiting'}
+         *
+         * 2. FINDING OPPONENTS
+         *    - We scan the queue for other waiting players
+         *    - Match with the first available player (FIFO)
+         *    - Remove both players from queue
+         *
+         * 3. CREATING GAME ROOM
+         *    - Create unique game ID: game_{timestamp}_{random}
+         *    - Firebase structure: volleyball-games/{gameId}
+         *    - Store: {player1, player2, ball, gameState, scores}
+         *
+         * 4. REAL-TIME SYNC
+         *    - Both players listen to the same game room
+         *    - onValue() updates game state in real-time
+         *    - Each player updates their own position
+         *    - Ball physics calculated by server (player1)
+         *
+         * 5. DISCONNECT HANDLING
+         *    - onDisconnect() removes player from queue automatically
+         *    - If opponent disconnects during game, award win
+         */
+
+        async function findMatch() {
+            try {
+                document.getElementById('findMatchBtn').disabled = true;
+                document.getElementById('matchStatus').textContent = 'Joining matchmaking...';
+                document.getElementById('waitingSpinner').style.display = 'block';
+
+                // Step 1: Add ourselves to the matchmaking queue
+                const queueRef = window.firebaseRef(window.firebaseDB, `volleyball-matchmaking/${userId}`);
+                await window.firebaseSet(queueRef, {
+                    userId: userId,
+                    name: userName,
+                    timestamp: Date.now(),
+                    status: 'waiting'
+                });
+
+                // Setup auto-removal on disconnect
+                const onDisconnectRef = window.firebaseOnDisconnect(queueRef);
+                await onDisconnectRef.remove();
+
+                document.getElementById('matchStatus').textContent = 'Looking for opponent...';
+
+                // Step 2: Look for available opponents
+                const matchmakingRef = window.firebaseRef(window.firebaseDB, 'volleyball-matchmaking');
+                const snapshot = await window.firebaseGet(matchmakingRef);
+
+                let opponentId = null;
+                let opponentData = null;
+
+                if (snapshot.exists()) {
+                    const players = snapshot.val();
+
+                    // Find first available opponent (not ourselves)
+                    for (const [playerId, playerData] of Object.entries(players)) {
+                        if (playerId !== userId && playerData.status === 'waiting') {
+                            opponentId = playerId;
+                            opponentData = playerData;
+                            break;
+                        }
+                    }
+                }
+
+                if (opponentId) {
+                    // Step 3: Found opponent! Create game room
+                    await createGameRoom(opponentId, opponentData);
+                } else {
+                    // Step 4: No opponent yet, wait for someone to join
+                    document.getElementById('matchStatus').textContent = 'Waiting for opponent to join...';
+                    waitForOpponent();
+                }
+
+            } catch (error) {
+                console.error('Matchmaking error:', error);
+                alert('Failed to join matchmaking. Please try again.');
+                resetMatchmaking();
+            }
+        }
+
+        // Wait for an opponent to join the queue
+        function waitForOpponent() {
+            const matchmakingRef = window.firebaseRef(window.firebaseDB, 'volleyball-matchmaking');
+
+            // Listen for new players joining
+            const unsubscribe = window.firebaseOnValue(matchmakingRef, async (snapshot) => {
+                if (!snapshot.exists()) return;
+
+                const players = snapshot.val();
+
+                // Look for other waiting players
+                for (const [playerId, playerData] of Object.entries(players)) {
+                    if (playerId !== userId && playerData.status === 'waiting') {
+                        // Found opponent!
+                        unsubscribe(); // Stop listening
+                        await createGameRoom(playerId, playerData);
+                        break;
+                    }
+                }
+            });
+        }
+
+        // Create a new game room for matched players
+        async function createGameRoom(opponentId, opponentData) {
+            try {
+                // Generate unique game ID
+                currentGameId = 'game_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+
+                // Determine player roles (first player = player1)
+                playerRole = 'player1';
+                opponentName = opponentData.name;
+
+                document.getElementById('matchStatus').textContent = `Found opponent: ${opponentName}!`;
+
+                // Create game room in Firebase
+                const gameRef = window.firebaseRef(window.firebaseDB, `volleyball-games/${currentGameId}`);
+                await window.firebaseSet(gameRef, {
+                    gameId: currentGameId,
+                    player1: {
+                        userId: userId,
+                        name: userName,
+                        x: player1.x,
+                        y: player1.y,
+                        velocityY: 0,
+                        score: 0
+                    },
+                    player2: {
+                        userId: opponentId,
+                        name: opponentName,
+                        x: player2.x,
+                        y: player2.y,
+                        velocityY: 0,
+                        score: 0
+                    },
+                    ball: {
+                        x: ball.x,
+                        y: ball.y,
+                        velocityX: 0,
+                        velocityY: 0,
+                        active: true
+                    },
+                    gameState: 'playing',
+                    currentServer: 'player1',
+                    createdAt: Date.now()
+                });
+
+                // Remove both players from matchmaking queue
+                const queue1Ref = window.firebaseRef(window.firebaseDB, `volleyball-matchmaking/${userId}`);
+                const queue2Ref = window.firebaseRef(window.firebaseDB, `volleyball-matchmaking/${opponentId}`);
+                await window.firebaseRemove(queue1Ref);
+                await window.firebaseRemove(queue2Ref);
+
+                // Start the game
+                setTimeout(() => {
+                    startGame();
+                }, 1500);
+
+            } catch (error) {
+                console.error('Error creating game room:', error);
+                alert('Failed to create game. Please try again.');
+                resetMatchmaking();
+            }
+        }
+
+        // Start the actual game
+        function startGame() {
+            document.getElementById('matchmakingScreen').style.display = 'none';
+            document.getElementById('controlsHint').style.display = 'block';
+
+            // Update player names in scoreboard
+            document.getElementById('player1Name').textContent = userName;
+            document.getElementById('player2Name').textContent = opponentName;
+
+            gameState = 'playing';
+
+            // Listen for game updates from Firebase
+            listenToGameUpdates();
+
+            // Hide controls hint after 5 seconds
+            setTimeout(() => {
+                document.getElementById('controlsHint').style.display = 'none';
+            }, 5000);
+        }
+
+        // Listen to real-time game updates
+        function listenToGameUpdates() {
+            const gameRef = window.firebaseRef(window.firebaseDB, `volleyball-games/${currentGameId}`);
+
+            window.firebaseOnValue(gameRef, (snapshot) => {
+                if (!snapshot.exists()) {
+                    // Game was deleted (opponent disconnected)
+                    if (gameState === 'playing') {
+                        alert('Opponent disconnected. You win!');
+                        endGameAsWinner();
+                    }
+                    return;
+                }
+
+                const gameData = snapshot.val();
+
+                // Update opponent position
+                if (playerRole === 'player1') {
+                    player2.x = gameData.player2.x;
+                    player2.y = gameData.player2.y;
+                    player2.score = gameData.player2.score;
+                } else {
+                    player1.x = gameData.player1.x;
+                    player1.y = gameData.player1.y;
+                    player1.score = gameData.player1.score;
+                }
+
+                // Update ball position
+                ball.x = gameData.ball.x;
+                ball.y = gameData.ball.y;
+                ball.velocityX = gameData.ball.velocityX;
+                ball.velocityY = gameData.ball.velocityY;
+
+                // Update scores
+                document.getElementById('player1Score').textContent = gameData.player1.score;
+                document.getElementById('player2Score').textContent = gameData.player2.score;
+
+                // Check for game end
+                if (gameData.gameState === 'finished') {
+                    const winner = gameData.winner;
+                    if (winner === userId) {
+                        showGameOver(true, gameData.player1.score, gameData.player2.score);
+                    } else {
+                        showGameOver(false, gameData.player1.score, gameData.player2.score);
+                    }
+                }
+            });
+        }
+
+        // Reset matchmaking state
+        function resetMatchmaking() {
+            document.getElementById('findMatchBtn').disabled = false;
+            document.getElementById('matchStatus').textContent = 'Click to join matchmaking';
+            document.getElementById('waitingSpinner').style.display = 'none';
+            gameState = 'matchmaking';
+        }
+
+        // Play again function
+        function playAgain() {
+            if (currentGameId) {
+                cleanupGame();
+            }
+            document.getElementById('gameOverModal').style.display = 'none';
+            document.getElementById('matchmakingScreen').style.display = 'block';
+            resetMatchmaking();
+        }
+
+        // Cleanup game resources
+        async function cleanupGame() {
+            if (currentGameId) {
+                try {
+                    const gameRef = window.firebaseRef(window.firebaseDB, `volleyball-games/${currentGameId}`);
+                    await window.firebaseRemove(gameRef);
+                } catch (error) {
+                    console.warn('Error cleaning up game:', error);
+                }
+                currentGameId = null;
+            }
+        }
+
+        // Show game over screen
+        function showGameOver(won, score1, score2) {
+            gameState = 'finished';
+
+            if (won) {
+                document.getElementById('gameOverTitle').textContent = '🎉 You Won! 🎉';
+            } else {
+                document.getElementById('gameOverTitle').textContent = '😢 You Lost';
+            }
+
+            document.getElementById('finalScoreText').textContent = `${score1} - ${score2}`;
+            document.getElementById('winnerName').textContent = won ? userName : opponentName;
+            document.getElementById('gameOverModal').style.display = 'block';
+        }
+
+        // End game when opponent disconnects
+        function endGameAsWinner() {
+            showGameOver(true, player1.score, player2.score);
+            cleanupGame();
+        }
+
+        // ==========================================
+        // INPUT HANDLING
+        // ==========================================
+
+        // Keyboard input
+        document.addEventListener('keydown', (e) => {
+            if (gameState !== 'playing') return;
+            keys[e.key] = true;
+
+            // Jump/Hit for Player 1 (Arrow Up or Space)
+            if ((e.key === 'ArrowUp' || e.key === ' ') && playerRole === 'player1') {
+                if (player1.onGround) {
+                    player1.velocityY = -JUMP_POWER;
+                    player1.onGround = false;
+                }
+            }
+
+            // Jump/Hit for Player 2 (W or Shift)
+            if ((e.key === 'w' || e.key === 'W' || e.key === 'Shift') && playerRole === 'player2') {
+                if (player2.onGround) {
+                    player2.velocityY = -JUMP_POWER;
+                    player2.onGround = false;
+                }
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keys[e.key] = false;
+        });
+
+        // ==========================================
+        // GAME PHYSICS & UPDATE
+        // ==========================================
+
+        function updatePlayerPhysics(player) {
+            // Apply gravity
+            if (!player.onGround) {
+                player.velocityY += GRAVITY;
+            }
+
+            // Update vertical position
+            player.y += player.velocityY;
+
+            // Ground collision
+            if (player.y >= GROUND_Y - player.height) {
+                player.y = GROUND_Y - player.height;
+                player.velocityY = 0;
+                player.onGround = true;
+            }
+
+            // Keep within bounds (left/right)
+            if (player === player1) {
+                player.x = Math.max(30, Math.min(COURT_WIDTH / 2 - 50, player.x));
+            } else {
+                player.x = Math.max(COURT_WIDTH / 2 + 50, Math.min(COURT_WIDTH - 30, player.x));
+            }
+        }
+
+        function updateBallPhysics() {
+            if (!ball.active) return;
+
+            // Apply gravity to ball
+            ball.velocityY += GRAVITY * 0.8;
+
+            // Update ball position
+            ball.x += ball.velocityX;
+            ball.y += ball.velocityY;
+
+            // Net collision
+            const netLeft = COURT_WIDTH / 2 - NET_WIDTH / 2;
+            const netRight = COURT_WIDTH / 2 + NET_WIDTH / 2;
+            const netTop = GROUND_Y - NET_HEIGHT;
+
+            if (ball.x + ball.radius > netLeft && ball.x - ball.radius < netRight &&
+                ball.y + ball.radius > netTop && ball.y - ball.radius < GROUND_Y) {
+                // Hit the net
+                ball.velocityX *= -0.5;
+                if (ball.x < COURT_WIDTH / 2) {
+                    ball.x = netLeft - ball.radius;
+                } else {
+                    ball.x = netRight + ball.radius;
+                }
+            }
+
+            // Check if ball hit the ground (scoring)
+            if (ball.y + ball.radius >= GROUND_Y) {
+                if (ball.x < COURT_WIDTH / 2) {
+                    // Ball landed on player1's side - player2 scores
+                    scorePoint('player2');
+                } else {
+                    // Ball landed on player2's side - player1 scores
+                    scorePoint('player1');
+                }
+                return;
+            }
+
+            // Ball out of bounds (sides)
+            if (ball.x < 0 || ball.x > COURT_WIDTH) {
+                if (ball.x < COURT_WIDTH / 2) {
+                    scorePoint('player2');
+                } else {
+                    scorePoint('player1');
+                }
+                return;
+            }
+
+            // Player collision
+            checkBallPlayerCollision(player1);
+            checkBallPlayerCollision(player2);
+        }
+
+        function checkBallPlayerCollision(player) {
+            const dist = Math.sqrt(
+                Math.pow(ball.x - player.x, 2) +
+                Math.pow(ball.y - (player.y + 10), 2)
+            );
+
+            if (dist < ball.radius + 25) {
+                // Ball hit player!
+                const angle = Math.atan2(ball.y - (player.y + 10), ball.x - player.x);
+                const power = 8;
+
+                ball.velocityX = Math.cos(angle) * power;
+                ball.velocityY = Math.sin(angle) * power - 3; // Add upward boost
+
+                // Move ball away from player to prevent multiple hits
+                ball.x = player.x + Math.cos(angle) * (ball.radius + 26);
+                ball.y = (player.y + 10) + Math.sin(angle) * (ball.radius + 26);
+            }
+        }
+
+        function scorePoint(scoringPlayer) {
+            if (scoringPlayer === 'player1') {
+                player1.score++;
+            } else {
+                player2.score++;
+            }
+
+            // Check for win condition
+            if (player1.score >= WIN_SCORE || player2.score >= WIN_SCORE) {
+                endGame();
+                return;
+            }
+
+            // Reset ball
+            resetBall(scoringPlayer === 'player1' ? 'player1' : 'player2');
+
+            // Update scores in Firebase
+            if (currentGameId) {
+                const gameRef = window.firebaseRef(window.firebaseDB, `volleyball-games/${currentGameId}`);
+                window.firebaseUpdate(gameRef, {
+                    'player1/score': player1.score,
+                    'player2/score': player2.score
+                });
+            }
+        }
+
+        function resetBall(server) {
+            ball.x = server === 'player1' ? 150 : COURT_WIDTH - 150;
+            ball.y = GROUND_Y - 120;
+            ball.velocityX = server === 'player1' ? 3 : -3;
+            ball.velocityY = -5;
+            ball.active = true;
+        }
+
+        async function endGame() {
+            gameState = 'finished';
+
+            const winner = player1.score >= WIN_SCORE ? player1 : player2;
+            const winnerId = playerRole === 'player1' ?
+                (winner === player1 ? userId : opponentName) :
+                (winner === player2 ? userId : opponentName);
+
+            // Update Firebase with game result
+            if (currentGameId) {
+                const gameRef = window.firebaseRef(window.firebaseDB, `volleyball-games/${currentGameId}`);
+                await window.firebaseUpdate(gameRef, {
+                    gameState: 'finished',
+                    winner: winnerId
+                });
+            }
+
+            // Show will be triggered by Firebase listener
+        }
+
+        // Game loop
+        function update() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw court
+            drawCourt();
+
+            // Only update physics if playing
+            if (gameState === 'playing') {
+                // Handle player movement based on keys
+                if (playerRole === 'player1') {
+                    if (keys['ArrowLeft']) player1.x -= MOVE_SPEED;
+                    if (keys['ArrowRight']) player1.x += MOVE_SPEED;
+
+                    updatePlayerPhysics(player1);
+
+                    // Update my position in Firebase
+                    if (currentGameId) {
+                        const gameRef = window.firebaseRef(window.firebaseDB, `volleyball-games/${currentGameId}`);
+                        window.firebaseUpdate(gameRef, {
+                            'player1/x': player1.x,
+                            'player1/y': player1.y,
+                            'player1/velocityY': player1.velocityY
+                        });
+                    }
+                } else if (playerRole === 'player2') {
+                    if (keys['a'] || keys['A']) player2.x -= MOVE_SPEED;
+                    if (keys['d'] || keys['D']) player2.x += MOVE_SPEED;
+
+                    updatePlayerPhysics(player2);
+
+                    // Update my position in Firebase
+                    if (currentGameId) {
+                        const gameRef = window.firebaseRef(window.firebaseDB, `volleyball-games/${currentGameId}`);
+                        window.firebaseUpdate(gameRef, {
+                            'player2/x': player2.x,
+                            'player2/y': player2.y,
+                            'player2/velocityY': player2.velocityY
+                        });
+                    }
+                }
+
+                // Player1 controls ball physics (acts as server)
+                if (playerRole === 'player1') {
+                    updateBallPhysics();
+
+                    // Update ball in Firebase
+                    if (currentGameId) {
+                        const gameRef = window.firebaseRef(window.firebaseDB, `volleyball-games/${currentGameId}`);
+                        window.firebaseUpdate(gameRef, {
+                            'ball/x': ball.x,
+                            'ball/y': ball.y,
+                            'ball/velocityX': ball.velocityX,
+                            'ball/velocityY': ball.velocityY
+                        });
+                    }
+                }
+            }
+
+            // Draw players
+            drawPlayer(player1, player1.color);
+            drawPlayer(player2, player2.color);
+
+            // Draw ball
+            drawBall();
+
+            requestAnimationFrame(update);
+        }
+
+        function drawCourt() {
+            // Ground
+            ctx.fillStyle = '#90EE90';
+            ctx.fillRect(0, GROUND_Y, COURT_WIDTH, 50);
+
+            // Net
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(COURT_WIDTH / 2 - NET_WIDTH / 2, GROUND_Y - NET_HEIGHT, NET_WIDTH, NET_HEIGHT);
+
+            // Net mesh pattern
+            ctx.strokeStyle = '#CCCCCC';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < NET_HEIGHT; i += 10) {
+                ctx.beginPath();
+                ctx.moveTo(COURT_WIDTH / 2 - NET_WIDTH / 2, GROUND_Y - NET_HEIGHT + i);
+                ctx.lineTo(COURT_WIDTH / 2 + NET_WIDTH / 2, GROUND_Y - NET_HEIGHT + i);
+                ctx.stroke();
+            }
+        }
+
+        function drawPlayer(player, color) {
+            ctx.save();
+
+            // Body (oval)
+            ctx.fillStyle = color === 'brown' ? '#8B4513' : '#2F2F2F';
+            ctx.beginPath();
+            ctx.ellipse(player.x, player.y + 20, 30, 22, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Head (circle)
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, 20, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Ears (triangles)
+            ctx.fillStyle = color === 'brown' ? '#A0522D' : '#1F1F1F';
+            ctx.beginPath();
+            ctx.moveTo(player.x - 15, player.y - 10);
+            ctx.lineTo(player.x - 20, player.y - 25);
+            ctx.lineTo(player.x - 10, player.y - 15);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(player.x + 15, player.y - 10);
+            ctx.lineTo(player.x + 20, player.y - 25);
+            ctx.lineTo(player.x + 10, player.y - 15);
+            ctx.fill();
+
+            // Eyes
+            ctx.fillStyle = '#000000';
+            ctx.beginPath();
+            ctx.arc(player.x - 8, player.y - 5, 3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(player.x + 8, player.y - 5, 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Nose
+            ctx.fillStyle = '#000000';
+            ctx.beginPath();
+            ctx.arc(player.x, player.y + 5, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            // White chest (for black corgi)
+            if (color === 'black') {
+                ctx.fillStyle = '#FFFFFF';
+                ctx.beginPath();
+                ctx.ellipse(player.x, player.y + 25, 15, 12, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Legs (simple rectangles)
+            ctx.fillStyle = color === 'brown' ? '#8B4513' : '#2F2F2F';
+            ctx.fillRect(player.x - 20, player.y + 35, 10, 10);
+            ctx.fillRect(player.x + 10, player.y + 35, 10, 10);
+
+            ctx.restore();
+        }
+
+        function drawBall() {
+            ctx.save();
+            ctx.fillStyle = '#FFFFFF';
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Ball pattern
+            ctx.strokeStyle = '#DDDDDD';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        // Start game loop
+        update();
+    </script>
+</body>
+</html>

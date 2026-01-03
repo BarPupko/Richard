@@ -169,6 +169,14 @@
                 <span id="highScoreMessage" style="font-size: 0.8em;"></span>
             </p>
 
+            <!-- Leaderboard -->
+            <div id="leaderboard" style="margin: 20px 0; max-height: 300px; overflow-y: auto;">
+                <h3 style="color: #56ab2f; margin-bottom: 15px;">🏆 Top 10 Fastest Times 🏆</h3>
+                <div id="leaderboardList" style="text-align: left; font-size: 0.9em;">
+                    <p style="text-align: center; color: #999;">Loading leaderboard...</p>
+                </div>
+            </div>
+
             <button class="btn" onclick="restartGame()">Play Again</button>
             <button class="btn btn-secondary btn-small" onclick="goBack()">Back to Menu</button>
         </div>
@@ -272,6 +280,72 @@
                 return true;
             }
             return false;
+        }
+
+        // Load and display leaderboard
+        async function loadLeaderboard() {
+            const leaderboardList = document.getElementById('leaderboardList');
+
+            try {
+                // Fetch all users
+                const usersRef = window.firebaseRef(window.firebaseDB, 'users');
+                const snapshot = await window.firebaseGet(usersRef);
+
+                if (!snapshot.exists()) {
+                    leaderboardList.innerHTML = '<p style="text-align: center; color: #999;">No leaderboard data available yet.</p>';
+                    return;
+                }
+
+                // Convert to array and filter users with houseGarden scores
+                const users = [];
+                snapshot.forEach((childSnapshot) => {
+                    const userData = childSnapshot.val();
+                    const time = userData.highScores?.houseGarden;
+
+                    if (time && time > 0) {
+                        users.push({
+                            userId: childSnapshot.key,
+                            name: userData.name || 'Anonymous',
+                            time: time
+                        });
+                    }
+                });
+
+                // Sort by time (lowest time is best)
+                users.sort((a, b) => a.time - b.time);
+
+                // Take top 10
+                const top10 = users.slice(0, 10);
+
+                if (top10.length === 0) {
+                    leaderboardList.innerHTML = '<p style="text-align: center; color: #999;">No times recorded yet. Be the first!</p>';
+                    return;
+                }
+
+                // Display leaderboard
+                let html = '<div style="background: #f5f5f5; border-radius: 10px; padding: 10px;">';
+                top10.forEach((user, index) => {
+                    const isCurrentUser = user.userId === userId;
+                    const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+                    const bgColor = isCurrentUser ? '#fffacd' : 'white';
+                    const fontWeight = isCurrentUser ? 'bold' : 'normal';
+
+                    html += `
+                        <div style="background: ${bgColor}; padding: 8px 12px; margin: 5px 0; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; font-weight: ${fontWeight};">
+                            <span style="color: #56ab2f; font-size: 1.1em; width: 30px;">${medal}</span>
+                            <span style="flex: 1; color: #333;">${user.name}${isCurrentUser ? ' (You)' : ''}</span>
+                            <span style="color: #666; font-weight: bold;">${user.time}s</span>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+
+                leaderboardList.innerHTML = html;
+
+            } catch (error) {
+                console.warn('Could not load leaderboard:', error);
+                leaderboardList.innerHTML = '<p style="text-align: center; color: #999;">Could not load leaderboard. Please check your connection.</p>';
+            }
         }
 
         // Game variables
@@ -927,18 +1001,20 @@
             }, 5000);
         }
 
-        function gameOver() {
+        async function gameOver() {
             gameRunning = false;
             stopTimer();
 
-            document.getElementById('gameOverTitle').textContent = 'Game Over!';
-            document.getElementById('gameOverText').innerHTML =
-                `You ran out of lives!<br><br>Items collected: ${itemsCollected}/${totalItems} 📦<br>Time survived: ${gameTimer}s ⏱️`;
+            document.getElementById('gameOverTitle').textContent = '💔 Game Over!';
+            document.getElementById('finalTime').textContent = gameTimer;
 
             const highScoreMsg = document.getElementById('highScoreMessage');
-            highScoreMsg.textContent = '';
-            highScoreMsg.style.color = '#666';
-            highScoreMsg.style.fontWeight = 'normal';
+            highScoreMsg.textContent = `You ran out of lives! Collected ${itemsCollected}/${totalItems} toys`;
+            highScoreMsg.style.color = '#ff6347';
+            highScoreMsg.style.fontWeight = 'bold';
+
+            // Load and display leaderboard
+            await loadLeaderboard();
 
             document.getElementById('gameOverModal').style.display = 'block';
         }
@@ -950,25 +1026,37 @@
             const finalTime = gameTimer;
             document.getElementById('finalTime').textContent = finalTime;
 
-            const isNewHighScore = await saveHighScore(finalTime);
+            // Check if player won or lost
+            const won = itemsCollected >= totalItems;
 
-            const highScoreMsg = document.getElementById('highScoreMessage');
-            if (isNewHighScore) {
-                highScoreMsg.textContent = '🎊 NEW PERSONAL BEST! 🎊';
-                highScoreMsg.style.color = '#ff6347';
-                highScoreMsg.style.fontWeight = 'bold';
-            } else if (userHighScore < Infinity) {
-                highScoreMsg.textContent = `Your best time: ${userHighScore}s`;
-                highScoreMsg.style.color = '#666';
-                highScoreMsg.style.fontWeight = 'normal';
+            if (won) {
+                // Player completed the game
+                const isNewHighScore = await saveHighScore(finalTime);
+
+                const highScoreMsg = document.getElementById('highScoreMessage');
+                if (isNewHighScore) {
+                    highScoreMsg.textContent = '🎊 NEW PERSONAL BEST! 🎊';
+                    highScoreMsg.style.color = '#ff6347';
+                    highScoreMsg.style.fontWeight = 'bold';
+                } else if (userHighScore < Infinity) {
+                    highScoreMsg.textContent = `Your best time: ${userHighScore}s`;
+                    highScoreMsg.style.color = '#666';
+                    highScoreMsg.style.fontWeight = 'normal';
+                } else {
+                    highScoreMsg.textContent = '';
+                }
+
+                document.getElementById('gameOverTitle').textContent = '🎉 Great Job! 🎉';
             } else {
-                highScoreMsg.textContent = '';
+                // Player lost (ran out of lives)
+                document.getElementById('gameOverTitle').textContent = '💔 Game Over!';
+                document.getElementById('highScoreMessage').textContent = 'You ran out of lives! Try again!';
+                document.getElementById('highScoreMessage').style.color = '#ff6347';
+                document.getElementById('highScoreMessage').style.fontWeight = 'bold';
             }
 
-            document.getElementById('gameOverTitle').textContent = '🎉 Great Job! 🎉';
-            document.getElementById('gameOverText').innerHTML =
-                `Final Time: ${finalTime} seconds! 🏆<br>
-                <span id="highScoreMessage">${highScoreMsg.innerHTML}</span>`;
+            // Load and display leaderboard
+            await loadLeaderboard();
 
             document.getElementById('gameOverModal').style.display = 'block';
         }

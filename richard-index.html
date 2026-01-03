@@ -317,8 +317,8 @@
         </div>
 
         <div class="grid-item" onclick="playGame(5)">
-            <div class="corgi-emoji">🌳</div>
-            <div class="item-title">Park Adventure</div>
+            <div class="corgi-emoji">🏐</div>
+            <div class="item-title">Volleyball Match</div>
             <div class="play-icon"></div>
         </div>
 
@@ -586,15 +586,15 @@
                 'bone-collector-game.html',
                 'house-garden-game.html',
                 'corgi-run.html',
-                'park-adventure.html',
+                'volleyball-game.html',
                 'treat-hunt.html',
                 'nap-time.html',
                 'party-tricks.html',
                 'cuddle-time.html'
             ];
 
-            // Games 1, 2, and 3 are ready!
-            if (gameNumber === 1 || gameNumber === 2 || gameNumber === 3) {
+            // Games 1, 2, 3, and 5 are ready!
+            if (gameNumber === 1 || gameNumber === 2 || gameNumber === 3 || gameNumber === 5) {
                 // Ensure user data is in sessionStorage before navigating
                 if (!sessionStorage.getItem('richardUserData')) {
                     sessionStorage.setItem('richardUserData', JSON.stringify({
