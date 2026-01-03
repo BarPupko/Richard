@@ -282,10 +282,33 @@
         let timerInterval = null;
         let lives = 3;
 
-        // Door state
+        // Background images
+        let bgImageLandscape = new Image();
+        let bgImagePortrait = new Image();
+        let imagesLoaded = 0;
+
+        bgImageLandscape.src = 'background/landscape.png';
+        bgImagePortrait.src = 'background/phone.png';
+
+        bgImageLandscape.onload = () => {
+            imagesLoaded++;
+            if (imagesLoaded === 2) console.log('Background images loaded');
+        };
+
+        bgImagePortrait.onload = () => {
+            imagesLoaded++;
+            if (imagesLoaded === 2) console.log('Background images loaded');
+        };
+
+        // Door state (sliding door position)
         let doorOpen = false;
         let doorTimer = 0;
         let nextDoorChange = 2000; // milliseconds
+        let doorSlidePos = 0; // 0 = closed, 1 = fully open
+        let doorAnimating = false;
+
+        // Temperature (random between 60-85°F)
+        let temperature = Math.floor(Math.random() * 26) + 60;
 
         // Richard position
         let richard = {
@@ -491,34 +514,57 @@
         }
 
         // Draw door
-        function drawDoor() {
-            const doorX = canvas.width / 2 - 40;
-            const doorY = canvas.height / 2 - 60;
-            const doorWidth = 80;
-            const doorHeight = 120;
+        // Draw vertical sliding door (like a window slider)
+        function drawSlidingDoor() {
+            const doorX = canvas.width / 2 - 35;
+            const doorFrameTop = canvas.height / 2 - 80;
+            const doorFrameHeight = 160;
+            const doorWidth = 70;
 
-            // Door frame
-            ctx.fillStyle = '#654321';
-            ctx.fillRect(doorX, doorY, doorWidth, doorHeight);
+            ctx.save();
 
-            if (doorOpen) {
-                // Open door - show opening
-                ctx.fillStyle = '#000000';
-                ctx.fillRect(doorX + 10, doorY + 10, doorWidth - 20, doorHeight - 20);
+            // Door frame/track
+            ctx.fillStyle = '#8B7355';
+            ctx.fillRect(doorX - 5, doorFrameTop, doorWidth + 10, doorFrameHeight);
+            ctx.strokeStyle = '#654321';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(doorX - 5, doorFrameTop, doorWidth + 10, doorFrameHeight);
+
+            // Calculate door panel position (slides down when opening)
+            const doorPanelHeight = doorFrameHeight * 0.6; // Door covers 60% of frame
+            const slideDistance = doorFrameHeight - doorPanelHeight; // Distance it can slide
+            const doorPanelY = doorFrameTop + (slideDistance * doorSlidePos); // Slides down when open
+
+            // Door panel (glass with frame)
+            ctx.fillStyle = 'rgba(200, 230, 255, 0.6)'; // Light blue glass
+            ctx.fillRect(doorX, doorPanelY, doorWidth, doorPanelHeight);
+
+            // Door panel frame
+            ctx.strokeStyle = '#4A3410';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(doorX, doorPanelY, doorWidth, doorPanelHeight);
+
+            // Glass reflection
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.fillRect(doorX + 5, doorPanelY + 5, 20, 30);
+
+            // Handle/grip bar (horizontal bar in middle of door)
+            const handleY = doorPanelY + doorPanelHeight / 2;
+            ctx.fillStyle = '#C0C0C0';
+            ctx.fillRect(doorX + 10, handleY - 3, doorWidth - 20, 6);
+            ctx.strokeStyle = '#808080';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(doorX + 10, handleY - 3, doorWidth - 20, 6);
+
+            // Status indicator
+            if (doorSlidePos > 0.5) {
                 ctx.fillStyle = '#90EE90';
-                ctx.font = '20px Arial';
+                ctx.font = 'bold 14px Arial';
                 ctx.textAlign = 'center';
-                ctx.fillText('OPEN', doorX + doorWidth / 2, doorY + doorHeight / 2);
-            } else {
-                // Closed door
-                ctx.fillStyle = '#8B4513';
-                ctx.fillRect(doorX + 5, doorY + 5, doorWidth - 10, doorHeight - 10);
-                // Door knob
-                ctx.fillStyle = '#FFD700';
-                ctx.beginPath();
-                ctx.arc(doorX + doorWidth - 20, doorY + doorHeight / 2, 5, 0, Math.PI * 2);
-                ctx.fill();
+                ctx.fillText('OPEN', doorX + doorWidth / 2, doorFrameTop + doorFrameHeight / 2);
             }
+
+            ctx.restore();
         }
 
         // Draw collection box in garden
@@ -579,44 +625,48 @@
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Draw house side (left half - brown)
-            ctx.fillStyle = '#D2B48C';
-            ctx.fillRect(0, 0, canvas.width / 2, canvas.height);
+            // Draw background image (responsive - portrait for phone, landscape for desktop)
+            const isPortrait = canvas.width < canvas.height;
+            const bgImage = isPortrait ? bgImagePortrait : bgImageLandscape;
 
-            // Draw garden side (right half - green)
-            ctx.fillStyle = '#7cb342';
-            ctx.fillRect(canvas.width / 2, 0, canvas.width / 2, canvas.height);
+            if (imagesLoaded === 2) {
+                ctx.drawImage(bgImage, 0, 0, canvas.width, canvas.height);
+            } else {
+                // Fallback colors while loading
+                ctx.fillStyle = '#D2B48C';
+                ctx.fillRect(0, 0, canvas.width / 2, canvas.height);
+                ctx.fillStyle = '#7cb342';
+                ctx.fillRect(canvas.width / 2, 0, canvas.width / 2, canvas.height);
+            }
 
-            // Draw dividing wall (with gap for door)
-            const doorCenterY = canvas.height / 2;
-            const doorHeight = 120;
-            const wallX = canvas.width / 2;
-
-            ctx.fillStyle = '#654321'; // Dark brown wall
-            ctx.strokeStyle = '#000000';
-            ctx.lineWidth = 3;
-
-            // Wall above door
-            ctx.fillRect(wallX - 10, 0, 20, doorCenterY - doorHeight / 2);
-            ctx.strokeRect(wallX - 10, 0, 20, doorCenterY - doorHeight / 2);
-
-            // Wall below door
-            ctx.fillRect(wallX - 10, doorCenterY + doorHeight / 2, 20, canvas.height - (doorCenterY + doorHeight / 2));
-            ctx.strokeRect(wallX - 10, doorCenterY + doorHeight / 2, 20, canvas.height - (doorCenterY + doorHeight / 2));
-
-            // Update door timer
+            // Update door timer and animation
             doorTimer += deltaTime;
             if (doorTimer >= nextDoorChange) {
                 doorOpen = !doorOpen;
                 doorTimer = 0;
                 nextDoorChange = 1000 + Math.random() * 2000; // 1-3 seconds
+                doorAnimating = true;
             }
 
-            // Draw collection box in garden
-            drawCollectionBox();
+            // Animate door sliding
+            if (doorAnimating) {
+                if (doorOpen && doorSlidePos < 1) {
+                    doorSlidePos += deltaTime / 500; // Slide open in 500ms
+                    if (doorSlidePos >= 1) {
+                        doorSlidePos = 1;
+                        doorAnimating = false;
+                    }
+                } else if (!doorOpen && doorSlidePos > 0) {
+                    doorSlidePos -= deltaTime / 500; // Slide closed in 500ms
+                    if (doorSlidePos <= 0) {
+                        doorSlidePos = 0;
+                        doorAnimating = false;
+                    }
+                }
+            }
 
-            // Draw door
-            drawDoor();
+            // Draw sliding door
+            drawSlidingDoor();
 
             // Draw uncollected items
             houseItems.forEach(item => {
