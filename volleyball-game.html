@@ -290,8 +290,18 @@
             <h2 id="gameOverTitle">🎉 Victory! 🎉</h2>
             <p id="gameOverText" style="font-size: 1.5em; color: #333;">
                 Winner: <span id="winnerName">Player</span><br>
-                Final Score: <span id="finalScoreText">11-9</span>
+                Final Score: <span id="player1NameFinal">Player 1</span> <span id="finalScoreText">11-9</span> <span id="player2NameFinal">Player 2</span>
             </p>
+            <p id="highScoreMessage" style="font-size: 0.9em; color: #666; margin-top: 10px;"></p>
+
+            <!-- Leaderboard -->
+            <div id="leaderboard" style="margin: 20px 0; max-height: 300px; overflow-y: auto;">
+                <h3 style="color: #f4a460; margin-bottom: 15px;">🏆 Top 10 Players 🏆</h3>
+                <div id="leaderboardList" style="text-align: left; font-size: 0.9em;">
+                    <p style="text-align: center; color: #999;">Loading leaderboard...</p>
+                </div>
+            </div>
+
             <button class="btn" onclick="playAgain()">Play Again</button>
             <button class="btn btn-secondary btn-small" onclick="goBack()">Back to Menu</button>
         </div>
@@ -366,6 +376,113 @@
         const userDataStr = sessionStorage.getItem('richardUserData') || localStorage.getItem('richardUserProfile');
         const userData = userDataStr ? JSON.parse(userDataStr) : { name: 'Player' };
         const userName = userData.name || 'Player';
+        let userHighScore = userData.highScores?.volleyballGame || 0;
+
+        // High Score Management
+        async function saveHighScore(newScore) {
+            if (newScore > userHighScore) {
+                userHighScore = newScore;
+
+                // Update sessionStorage
+                const userDataStr = sessionStorage.getItem('richardUserData');
+                if (userDataStr) {
+                    const userData = JSON.parse(userDataStr);
+                    userData.highScores = userData.highScores || {};
+                    userData.highScores.volleyballGame = newScore;
+                    sessionStorage.setItem('richardUserData', JSON.stringify(userData));
+                }
+
+                // Update localStorage
+                const localData = JSON.parse(localStorage.getItem('richardUserProfile') || '{}');
+                localData.highScores = localData.highScores || {};
+                localData.highScores.volleyballGame = newScore;
+                localStorage.setItem('richardUserProfile', JSON.stringify(localData));
+
+                // Try to sync with Firebase
+                try {
+                    const userRef = window.firebaseRef(window.firebaseDB, 'users/' + userId + '/highScores');
+                    await window.firebaseUpdate(userRef, {
+                        volleyballGame: newScore,
+                        lastPlayed: Date.now()
+                    });
+
+                    // Show high score message
+                    const highScoreMsg = document.getElementById('highScoreMessage');
+                    highScoreMsg.textContent = '🎊 NEW PERSONAL BEST! 🎊';
+                    highScoreMsg.style.color = '#ff6347';
+                    highScoreMsg.style.fontWeight = 'bold';
+                } catch (error) {
+                    console.warn('Could not sync high score with Firebase:', error);
+                }
+
+                return true;
+            } else if (userHighScore > 0) {
+                const highScoreMsg = document.getElementById('highScoreMessage');
+                highScoreMsg.textContent = `Your best score: ${userHighScore}`;
+                highScoreMsg.style.color = '#666';
+                highScoreMsg.style.fontWeight = 'normal';
+            }
+            return false;
+        }
+
+        async function loadLeaderboard() {
+            const leaderboardList = document.getElementById('leaderboardList');
+
+            try {
+                const usersRef = window.firebaseRef(window.firebaseDB, 'users');
+                const snapshot = await window.firebaseGet(usersRef);
+
+                if (!snapshot.exists()) {
+                    leaderboardList.innerHTML = '<p style="text-align: center; color: #999;">No leaderboard data available yet.</p>';
+                    return;
+                }
+
+                const users = [];
+                snapshot.forEach((childSnapshot) => {
+                    const userData = childSnapshot.val();
+                    const score = userData.highScores?.volleyballGame;
+
+                    if (score && score > 0) {
+                        users.push({
+                            userId: childSnapshot.key,
+                            name: userData.name || 'Anonymous',
+                            score: score
+                        });
+                    }
+                });
+
+                users.sort((a, b) => b.score - a.score);
+                const top10 = users.slice(0, 10);
+
+                if (top10.length === 0) {
+                    leaderboardList.innerHTML = '<p style="text-align: center; color: #999;">No scores recorded yet. Be the first!</p>';
+                    return;
+                }
+
+                let html = '<div style="background: #f5f5f5; border-radius: 10px; padding: 10px;">';
+                top10.forEach((user, index) => {
+                    const isCurrentUser = user.userId === userId;
+                    const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+                    const bgColor = isCurrentUser ? '#fffacd' : 'white';
+                    const fontWeight = isCurrentUser ? 'bold' : 'normal';
+
+                    html += `
+                        <div style="background: ${bgColor}; padding: 8px 12px; margin: 5px 0; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; font-weight: ${fontWeight};">
+                            <span style="color: #f4a460; font-size: 1.1em; width: 30px;">${medal}</span>
+                            <span style="flex: 1; color: #333;">${user.name}${isCurrentUser ? ' (You)' : ''}</span>
+                            <span style="color: #666; font-weight: bold;">${user.score} pts</span>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+
+                leaderboardList.innerHTML = html;
+
+            } catch (error) {
+                console.warn('Could not load leaderboard:', error);
+                leaderboardList.innerHTML = '<p style="text-align: center; color: #999;">Leaderboard unavailable (offline mode)</p>';
+            }
+        }
 
         // Game state
         let gameState = 'matchmaking'; // 'matchmaking', 'waiting', 'playing', 'finished'
@@ -846,7 +963,7 @@
         }
 
         // Show game over screen
-        function showGameOver(won, score1, score2) {
+        async function showGameOver(won, score1, score2) {
             gameState = 'finished';
 
             if (won) {
@@ -855,8 +972,20 @@
                 document.getElementById('gameOverTitle').textContent = '😢 You Lost';
             }
 
+            // Get player names from scoreboard
+            const player1NameText = document.getElementById('player1Name').textContent;
+            const player2NameText = document.getElementById('player2Name').textContent;
+
             document.getElementById('finalScoreText').textContent = `${score1} - ${score2}`;
+            document.getElementById('player1NameFinal').textContent = player1NameText;
+            document.getElementById('player2NameFinal').textContent = player2NameText;
             document.getElementById('winnerName').textContent = won ? userName : opponentName;
+
+            // Save high score and load leaderboard
+            const finalScore = won ? score1 : score2; // Your score
+            await saveHighScore(finalScore);
+            await loadLeaderboard();
+
             document.getElementById('gameOverModal').style.display = 'block';
         }
 
