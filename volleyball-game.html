@@ -795,11 +795,22 @@
             // AI follows the ball when it's on their side
             const targetX = ball.x > COURT_WIDTH / 2 ? ball.x : COURT_WIDTH - 200;
 
+            // Track if AI moved
+            let aiMoved = false;
+            const oldX = player2.x;
+
             // Move towards target
             if (player2.x < targetX - 10) {
                 player2.x += MOVE_SPEED * 0.7; // AI is slightly slower
+                aiMoved = true;
             } else if (player2.x > targetX + 10) {
                 player2.x -= MOVE_SPEED * 0.7;
+                aiMoved = true;
+            }
+
+            // If AI is serving and moved, launch the ball
+            if (aiMoved && ball.serving && ball.server === 'player2') {
+                launchServe('player2');
             }
 
             // Jump to hit ball if it's close
