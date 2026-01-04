@@ -160,6 +160,71 @@
             text-align: center;
         }
 
+        /* Mobile Touch Controls */
+        .mobile-controls {
+            display: none;
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            z-index: 60;
+            padding: 0 20px;
+        }
+
+        .control-group {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .direction-pad {
+            display: flex;
+            gap: 10px;
+        }
+
+        .control-btn {
+            width: 70px;
+            height: 70px;
+            background: rgba(244, 164, 96, 0.8);
+            border: 3px solid rgba(255, 255, 255, 0.5);
+            border-radius: 15px;
+            color: white;
+            font-size: 1.5em;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            -webkit-user-select: none;
+            user-select: none;
+            touch-action: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        .control-btn:active {
+            background: rgba(210, 105, 30, 0.9);
+            transform: scale(0.95);
+        }
+
+        .jump-btn {
+            width: 90px;
+            height: 90px;
+            background: rgba(255, 69, 0, 0.8);
+            border-radius: 50%;
+            font-size: 1.8em;
+        }
+
+        @media (max-width: 768px) {
+            .mobile-controls {
+                display: block;
+            }
+
+            .controls-hint {
+                display: none !important;
+            }
+        }
+
         @media (max-width: 480px) {
             .header h1 {
                 font-size: 1.3em;
@@ -171,6 +236,23 @@
                 padding: 20px;
             }
             .modal h2 {
+                font-size: 1.5em;
+            }
+            .modal p {
+                font-size: 0.9em;
+            }
+            .btn {
+                font-size: 1.1em;
+                padding: 12px 30px;
+            }
+            .control-btn {
+                width: 60px;
+                height: 60px;
+                font-size: 1.3em;
+            }
+            .jump-btn {
+                width: 75px;
+                height: 75px;
                 font-size: 1.5em;
             }
         }
@@ -216,6 +298,17 @@
 
         <div class="controls-hint" id="controlsHint" style="display: none;">
             🐶 Brown: Arrow Keys + Space | 🐕 Black: WASD + W/Shift
+        </div>
+
+        <!-- Mobile Touch Controls -->
+        <div class="mobile-controls" id="mobileControls" style="display: none;">
+            <div class="control-group">
+                <div class="direction-pad">
+                    <div class="control-btn" id="leftBtn">◀</div>
+                    <div class="control-btn" id="rightBtn">▶</div>
+                </div>
+                <div class="control-btn jump-btn" id="jumpBtn">↑</div>
+            </div>
         </div>
     </div>
 
@@ -559,14 +652,19 @@
             document.getElementById('player2Name').textContent = opponentName;
 
             gameState = 'playing';
-            document.getElementById('controlsHint').style.display = 'block';
+
+            // Show appropriate controls based on device
+            if (window.innerWidth <= 768) {
+                document.getElementById('mobileControls').style.display = 'block';
+            } else {
+                document.getElementById('controlsHint').style.display = 'block';
+                setTimeout(() => {
+                    document.getElementById('controlsHint').style.display = 'none';
+                }, 5000);
+            }
 
             // Start ball
             resetBall('player1');
-
-            setTimeout(() => {
-                document.getElementById('controlsHint').style.display = 'none';
-            }, 5000);
         }
 
         // AI Logic
@@ -602,7 +700,6 @@
         // Start the actual game
         function startGame() {
             document.getElementById('matchmakingScreen').style.display = 'none';
-            document.getElementById('controlsHint').style.display = 'block';
 
             // Update player names in scoreboard
             document.getElementById('player1Name').textContent = userName;
@@ -610,13 +707,18 @@
 
             gameState = 'playing';
 
+            // Show appropriate controls based on device
+            if (window.innerWidth <= 768) {
+                document.getElementById('mobileControls').style.display = 'block';
+            } else {
+                document.getElementById('controlsHint').style.display = 'block';
+                setTimeout(() => {
+                    document.getElementById('controlsHint').style.display = 'none';
+                }, 5000);
+            }
+
             // Listen for game updates from Firebase
             listenToGameUpdates();
-
-            // Hide controls hint after 5 seconds
-            setTimeout(() => {
-                document.getElementById('controlsHint').style.display = 'none';
-            }, 5000);
         }
 
         // Listen to real-time game updates
@@ -753,6 +855,90 @@
         document.addEventListener('keyup', (e) => {
             keys[e.key] = false;
         });
+
+        // ==========================================
+        // MOBILE TOUCH CONTROLS
+        // ==========================================
+
+        // Touch state for mobile controls
+        let touchState = {
+            left: false,
+            right: false,
+            jump: false
+        };
+
+        // Left button
+        const leftBtn = document.getElementById('leftBtn');
+        leftBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            touchState.left = true;
+        });
+        leftBtn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            touchState.left = false;
+        });
+        leftBtn.addEventListener('touchcancel', (e) => {
+            e.preventDefault();
+            touchState.left = false;
+        });
+
+        // Right button
+        const rightBtn = document.getElementById('rightBtn');
+        rightBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            touchState.right = true;
+        });
+        rightBtn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            touchState.right = false;
+        });
+        rightBtn.addEventListener('touchcancel', (e) => {
+            e.preventDefault();
+            touchState.right = false;
+        });
+
+        // Jump button
+        const jumpBtn = document.getElementById('jumpBtn');
+        jumpBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            touchState.jump = true;
+
+            // Trigger jump immediately
+            if (gameState !== 'playing') return;
+
+            if (isAIMode || playerRole === 'player1') {
+                if (player1.onGround) {
+                    player1.velocityY = -JUMP_POWER;
+                    player1.onGround = false;
+                }
+            } else if (playerRole === 'player2') {
+                if (player2.onGround) {
+                    player2.velocityY = -JUMP_POWER;
+                    player2.onGround = false;
+                }
+            }
+        });
+        jumpBtn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            touchState.jump = false;
+        });
+        jumpBtn.addEventListener('touchcancel', (e) => {
+            e.preventDefault();
+            touchState.jump = false;
+        });
+
+        // Apply touch movement in game loop
+        function applyTouchControls() {
+            if (gameState !== 'playing') return;
+
+            if (isAIMode || playerRole === 'player1') {
+                if (touchState.left) player1.x -= MOVE_SPEED;
+                if (touchState.right) player1.x += MOVE_SPEED;
+            } else if (playerRole === 'player2') {
+                if (touchState.left) player2.x -= MOVE_SPEED;
+                if (touchState.right) player2.x += MOVE_SPEED;
+            }
+        }
 
         // ==========================================
         // GAME PHYSICS & UPDATE
@@ -913,11 +1099,27 @@
         function update() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+            // Scale canvas to fit screen while maintaining aspect ratio
+            const scaleX = canvas.width / COURT_WIDTH;
+            const scaleY = canvas.height / COURT_HEIGHT;
+            const scale = Math.min(scaleX, scaleY);
+
+            ctx.save();
+            ctx.scale(scale, scale);
+
+            // Center the court if needed
+            const offsetX = (canvas.width / scale - COURT_WIDTH) / 2;
+            const offsetY = (canvas.height / scale - COURT_HEIGHT) / 2;
+            ctx.translate(offsetX, offsetY);
+
             // Draw court
             drawCourt();
 
             // Only update physics if playing
             if (gameState === 'playing') {
+                // Apply touch controls first
+                applyTouchControls();
+
                 if (isAIMode) {
                     // AI Mode - player controls player1, AI controls player2
                     if (keys['ArrowLeft']) player1.x -= MOVE_SPEED;
@@ -984,6 +1186,8 @@
 
             // Draw ball
             drawBall();
+
+            ctx.restore();
 
             requestAnimationFrame(update);
         }
