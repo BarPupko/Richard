@@ -194,11 +194,12 @@
 
         <!-- Matchmaking Screen -->
         <div class="modal" id="matchmakingScreen">
-            <h2>🏐 Find Opponent</h2>
-            <p>Get ready to play volleyball!</p>
-            <div class="status-message" id="matchStatus">Click to join matchmaking</div>
+            <h2>🏐 Choose Game Mode</h2>
+            <p>Play against another player or AI!</p>
+            <div class="status-message" id="matchStatus">Choose your mode</div>
             <div class="waiting-spinner" id="waitingSpinner" style="display: none;"></div>
-            <button class="btn" id="findMatchBtn" onclick="findMatch()">Find Match</button>
+            <button class="btn" id="findMatchBtn" onclick="findMatch()">🎮 Find Player</button>
+            <button class="btn" id="playAIBtn" onclick="playVsAI()">🤖 Play vs AI</button>
             <button class="btn btn-secondary btn-small" onclick="goBack()">Back to Menu</button>
         </div>
 
@@ -278,6 +279,7 @@
         let currentGameId = null;
         let playerRole = null; // 'player1' or 'player2'
         let opponentName = 'Opponent';
+        let isAIMode = false; // true if playing against AI
 
         // Game variables
         const COURT_WIDTH = 800;
@@ -452,46 +454,80 @@
         // Create a new game room for matched players
         async function createGameRoom(opponentId, opponentData) {
             try {
-                // Generate unique game ID
-                currentGameId = 'game_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                document.getElementById('matchStatus').textContent = `Found opponent: ${opponentData.name}!`;
 
-                // Determine player roles (first player = player1)
-                playerRole = 'player1';
-                opponentName = opponentData.name;
+                // Check if a game room already exists with this opponent
+                const matchmakingRef = window.firebaseRef(window.firebaseDB, 'volleyball-games');
+                const gamesSnapshot = await window.firebaseGet(matchmakingRef);
 
-                document.getElementById('matchStatus').textContent = `Found opponent: ${opponentName}!`;
+                let existingGameId = null;
 
-                // Create game room in Firebase
-                const gameRef = window.firebaseRef(window.firebaseDB, `volleyball-games/${currentGameId}`);
-                await window.firebaseSet(gameRef, {
-                    gameId: currentGameId,
-                    player1: {
-                        userId: userId,
-                        name: userName,
-                        x: player1.x,
-                        y: player1.y,
-                        velocityY: 0,
-                        score: 0
-                    },
-                    player2: {
-                        userId: opponentId,
-                        name: opponentName,
-                        x: player2.x,
-                        y: player2.y,
-                        velocityY: 0,
-                        score: 0
-                    },
-                    ball: {
-                        x: ball.x,
-                        y: ball.y,
-                        velocityX: 0,
-                        velocityY: 0,
-                        active: true
-                    },
-                    gameState: 'playing',
-                    currentServer: 'player1',
-                    createdAt: Date.now()
-                });
+                if (gamesSnapshot.exists()) {
+                    const games = gamesSnapshot.val();
+                    // Look for a game where opponent is player1 and waiting for us
+                    for (const [gameId, gameData] of Object.entries(games)) {
+                        if (gameData.player1.userId === opponentId && !gameData.player2.userId) {
+                            existingGameId = gameId;
+                            break;
+                        }
+                    }
+                }
+
+                if (existingGameId) {
+                    // Join existing game as player2
+                    currentGameId = existingGameId;
+                    playerRole = 'player2';
+                    opponentName = opponentData.name;
+
+                    const gameRef = window.firebaseRef(window.firebaseDB, `volleyball-games/${currentGameId}`);
+                    await window.firebaseUpdate(gameRef, {
+                        'player2': {
+                            userId: userId,
+                            name: userName,
+                            x: player2.x,
+                            y: player2.y,
+                            velocityY: 0,
+                            score: 0
+                        },
+                        gameState: 'playing'
+                    });
+                } else {
+                    // Create new game as player1
+                    currentGameId = 'game_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                    playerRole = 'player1';
+                    opponentName = opponentData.name;
+
+                    const gameRef = window.firebaseRef(window.firebaseDB, `volleyball-games/${currentGameId}`);
+                    await window.firebaseSet(gameRef, {
+                        gameId: currentGameId,
+                        player1: {
+                            userId: userId,
+                            name: userName,
+                            x: player1.x,
+                            y: player1.y,
+                            velocityY: 0,
+                            score: 0
+                        },
+                        player2: {
+                            userId: opponentId,
+                            name: opponentData.name,
+                            x: player2.x,
+                            y: player2.y,
+                            velocityY: 0,
+                            score: 0
+                        },
+                        ball: {
+                            x: ball.x,
+                            y: ball.y,
+                            velocityX: 0,
+                            velocityY: 0,
+                            active: true
+                        },
+                        gameState: 'playing',
+                        currentServer: 'player1',
+                        createdAt: Date.now()
+                    });
+                }
 
                 // Remove both players from matchmaking queue
                 const queue1Ref = window.firebaseRef(window.firebaseDB, `volleyball-matchmaking/${userId}`);
@@ -509,6 +545,58 @@
                 alert('Failed to create game. Please try again.');
                 resetMatchmaking();
             }
+        }
+
+        // Play against AI
+        function playVsAI() {
+            isAIMode = true;
+            playerRole = 'player1';
+            opponentName = 'AI Bot';
+            currentGameId = 'ai_game_' + Date.now();
+
+            document.getElementById('matchmakingScreen').style.display = 'none';
+            document.getElementById('player1Name').textContent = userName;
+            document.getElementById('player2Name').textContent = opponentName;
+
+            gameState = 'playing';
+            document.getElementById('controlsHint').style.display = 'block';
+
+            // Start ball
+            resetBall('player1');
+
+            setTimeout(() => {
+                document.getElementById('controlsHint').style.display = 'none';
+            }, 5000);
+        }
+
+        // AI Logic
+        function updateAI() {
+            if (!isAIMode) return;
+
+            // AI follows the ball when it's on their side
+            const targetX = ball.x > COURT_WIDTH / 2 ? ball.x : COURT_WIDTH - 200;
+
+            // Move towards target
+            if (player2.x < targetX - 10) {
+                player2.x += MOVE_SPEED * 0.7; // AI is slightly slower
+            } else if (player2.x > targetX + 10) {
+                player2.x -= MOVE_SPEED * 0.7;
+            }
+
+            // Jump to hit ball if it's close
+            if (ball.x > COURT_WIDTH / 2 && player2.onGround) {
+                const dist = Math.sqrt(
+                    Math.pow(ball.x - player2.x, 2) +
+                    Math.pow(ball.y - (player2.y + 10), 2)
+                );
+
+                if (dist < 80 && ball.y < player2.y) {
+                    player2.velocityY = -JUMP_POWER;
+                    player2.onGround = false;
+                }
+            }
+
+            updatePlayerPhysics(player2);
         }
 
         // Start the actual game
@@ -583,14 +671,18 @@
         // Reset matchmaking state
         function resetMatchmaking() {
             document.getElementById('findMatchBtn').disabled = false;
-            document.getElementById('matchStatus').textContent = 'Click to join matchmaking';
+            document.getElementById('matchStatus').textContent = 'Choose your mode';
             document.getElementById('waitingSpinner').style.display = 'none';
             gameState = 'matchmaking';
+            isAIMode = false;
+            playerRole = null;
+            player1.score = 0;
+            player2.score = 0;
         }
 
         // Play again function
         function playAgain() {
-            if (currentGameId) {
+            if (currentGameId && !isAIMode) {
                 cleanupGame();
             }
             document.getElementById('gameOverModal').style.display = 'none';
@@ -826,52 +918,62 @@
 
             // Only update physics if playing
             if (gameState === 'playing') {
-                // Handle player movement based on keys
-                if (playerRole === 'player1') {
+                if (isAIMode) {
+                    // AI Mode - player controls player1, AI controls player2
                     if (keys['ArrowLeft']) player1.x -= MOVE_SPEED;
                     if (keys['ArrowRight']) player1.x += MOVE_SPEED;
 
                     updatePlayerPhysics(player1);
+                    updateAI(); // Update AI opponent
+                    updateBallPhysics(); // Update ball in AI mode
+                } else {
+                    // Multiplayer Mode
+                    if (playerRole === 'player1') {
+                        if (keys['ArrowLeft']) player1.x -= MOVE_SPEED;
+                        if (keys['ArrowRight']) player1.x += MOVE_SPEED;
 
-                    // Update my position in Firebase
-                    if (currentGameId) {
-                        const gameRef = window.firebaseRef(window.firebaseDB, `volleyball-games/${currentGameId}`);
-                        window.firebaseUpdate(gameRef, {
-                            'player1/x': player1.x,
-                            'player1/y': player1.y,
-                            'player1/velocityY': player1.velocityY
-                        });
+                        updatePlayerPhysics(player1);
+
+                        // Update my position in Firebase
+                        if (currentGameId) {
+                            const gameRef = window.firebaseRef(window.firebaseDB, `volleyball-games/${currentGameId}`);
+                            window.firebaseUpdate(gameRef, {
+                                'player1/x': player1.x,
+                                'player1/y': player1.y,
+                                'player1/velocityY': player1.velocityY
+                            });
+                        }
+                    } else if (playerRole === 'player2') {
+                        if (keys['a'] || keys['A']) player2.x -= MOVE_SPEED;
+                        if (keys['d'] || keys['D']) player2.x += MOVE_SPEED;
+
+                        updatePlayerPhysics(player2);
+
+                        // Update my position in Firebase
+                        if (currentGameId) {
+                            const gameRef = window.firebaseRef(window.firebaseDB, `volleyball-games/${currentGameId}`);
+                            window.firebaseUpdate(gameRef, {
+                                'player2/x': player2.x,
+                                'player2/y': player2.y,
+                                'player2/velocityY': player2.velocityY
+                            });
+                        }
                     }
-                } else if (playerRole === 'player2') {
-                    if (keys['a'] || keys['A']) player2.x -= MOVE_SPEED;
-                    if (keys['d'] || keys['D']) player2.x += MOVE_SPEED;
 
-                    updatePlayerPhysics(player2);
+                    // Player1 controls ball physics (acts as server)
+                    if (playerRole === 'player1') {
+                        updateBallPhysics();
 
-                    // Update my position in Firebase
-                    if (currentGameId) {
-                        const gameRef = window.firebaseRef(window.firebaseDB, `volleyball-games/${currentGameId}`);
-                        window.firebaseUpdate(gameRef, {
-                            'player2/x': player2.x,
-                            'player2/y': player2.y,
-                            'player2/velocityY': player2.velocityY
-                        });
-                    }
-                }
-
-                // Player1 controls ball physics (acts as server)
-                if (playerRole === 'player1') {
-                    updateBallPhysics();
-
-                    // Update ball in Firebase
-                    if (currentGameId) {
-                        const gameRef = window.firebaseRef(window.firebaseDB, `volleyball-games/${currentGameId}`);
-                        window.firebaseUpdate(gameRef, {
-                            'ball/x': ball.x,
-                            'ball/y': ball.y,
-                            'ball/velocityX': ball.velocityX,
-                            'ball/velocityY': ball.velocityY
-                        });
+                        // Update ball in Firebase
+                        if (currentGameId) {
+                            const gameRef = window.firebaseRef(window.firebaseDB, `volleyball-games/${currentGameId}`);
+                            window.firebaseUpdate(gameRef, {
+                                'ball/x': ball.x,
+                                'ball/y': ball.y,
+                                'ball/velocityX': ball.velocityX,
+                                'ball/velocityY': ball.velocityY
+                            });
+                        }
                     }
                 }
             }
