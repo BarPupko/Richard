@@ -297,7 +297,7 @@
         </div>
 
         <div class="controls-hint" id="controlsHint" style="display: none;">
-            🐶 Brown: Arrow Keys + Space | 🐕 Black: WASD + W/Shift
+            🐶 Brown: Arrow Keys + Space | 🐕 Black: A/D + W/Shift
         </div>
 
         <!-- Mobile Touch Controls -->
@@ -415,7 +415,9 @@
             radius: 15,
             velocityX: 0,
             velocityY: 0,
-            active: false
+            active: false,
+            serving: false,
+            server: null // 'player1' or 'player2'
         };
 
         // Input tracking
@@ -614,7 +616,9 @@
                             y: ball.y,
                             velocityX: 0,
                             velocityY: 0,
-                            active: true
+                            active: true,
+                            serving: true,
+                            server: 'player1'
                         },
                         gameState: 'playing',
                         currentServer: 'player1',
@@ -717,12 +721,17 @@
                 }, 5000);
             }
 
+            // Start ball from player1's side
+            resetBall('player1');
+
             // Listen for game updates from Firebase
             listenToGameUpdates();
         }
 
         // Listen to real-time game updates
         function listenToGameUpdates() {
+            if (isAIMode) return; // Don't listen to Firebase in AI mode
+
             const gameRef = window.firebaseRef(window.firebaseDB, `volleyball-games/${currentGameId}`);
 
             window.firebaseOnValue(gameRef, (snapshot) => {
@@ -737,34 +746,51 @@
 
                 const gameData = snapshot.val();
 
-                // Update opponent position
+                // Update opponent position (not our own position!)
                 if (playerRole === 'player1') {
-                    player2.x = gameData.player2.x;
-                    player2.y = gameData.player2.y;
-                    player2.score = gameData.player2.score;
-                } else {
-                    player1.x = gameData.player1.x;
-                    player1.y = gameData.player1.y;
-                    player1.score = gameData.player1.score;
+                    // I am player1, so only update player2 (opponent)
+                    if (gameData.player2) {
+                        player2.x = gameData.player2.x;
+                        player2.y = gameData.player2.y;
+                        player2.velocityY = gameData.player2.velocityY || 0;
+                    }
+                } else if (playerRole === 'player2') {
+                    // I am player2, so only update player1 (opponent)
+                    if (gameData.player1) {
+                        player1.x = gameData.player1.x;
+                        player1.y = gameData.player1.y;
+                        player1.velocityY = gameData.player1.velocityY || 0;
+                    }
                 }
 
-                // Update ball position
-                ball.x = gameData.ball.x;
-                ball.y = gameData.ball.y;
-                ball.velocityX = gameData.ball.velocityX;
-                ball.velocityY = gameData.ball.velocityY;
+                // Player1 receives ball updates from Firebase, Player2 calculates locally
+                // Actually, let's have Player1 control ball and Player2 just receives updates
+                if (playerRole === 'player2' && gameData.ball) {
+                    ball.x = gameData.ball.x;
+                    ball.y = gameData.ball.y;
+                    ball.velocityX = gameData.ball.velocityX;
+                    ball.velocityY = gameData.ball.velocityY;
+                    ball.serving = gameData.ball.serving || false;
+                    ball.server = gameData.ball.server || null;
+                }
 
-                // Update scores
-                document.getElementById('player1Score').textContent = gameData.player1.score;
-                document.getElementById('player2Score').textContent = gameData.player2.score;
+                // Update scores from Firebase
+                if (gameData.player1) {
+                    player1.score = gameData.player1.score;
+                    document.getElementById('player1Score').textContent = gameData.player1.score;
+                }
+                if (gameData.player2) {
+                    player2.score = gameData.player2.score;
+                    document.getElementById('player2Score').textContent = gameData.player2.score;
+                }
 
                 // Check for game end
                 if (gameData.gameState === 'finished') {
                     const winner = gameData.winner;
                     if (winner === userId) {
-                        showGameOver(true, gameData.player1.score, gameData.player2.score);
+                        showGameOver(true, player1.score, player2.score);
                     } else {
-                        showGameOver(false, gameData.player1.score, gameData.player2.score);
+                        showGameOver(false, player1.score, player2.score);
                     }
                 }
             });
@@ -787,6 +813,20 @@
             if (currentGameId && !isAIMode) {
                 cleanupGame();
             }
+
+            // Reset player positions and scores
+            player1.x = 150;
+            player1.y = GROUND_Y - 45;
+            player1.velocityY = 0;
+            player1.onGround = true;
+            player1.score = 0;
+
+            player2.x = COURT_WIDTH - 150;
+            player2.y = GROUND_Y - 45;
+            player2.velocityY = 0;
+            player2.onGround = true;
+            player2.score = 0;
+
             document.getElementById('gameOverModal').style.display = 'none';
             document.getElementById('matchmakingScreen').style.display = 'block';
             resetMatchmaking();
@@ -932,11 +972,33 @@
             if (gameState !== 'playing') return;
 
             if (isAIMode || playerRole === 'player1') {
-                if (touchState.left) player1.x -= MOVE_SPEED;
-                if (touchState.right) player1.x += MOVE_SPEED;
+                let moved = false;
+                if (touchState.left) {
+                    player1.x -= MOVE_SPEED;
+                    moved = true;
+                }
+                if (touchState.right) {
+                    player1.x += MOVE_SPEED;
+                    moved = true;
+                }
+                // Launch ball if serving and moved
+                if (moved && ball.serving && ball.server === 'player1') {
+                    launchServe('player1');
+                }
             } else if (playerRole === 'player2') {
-                if (touchState.left) player2.x -= MOVE_SPEED;
-                if (touchState.right) player2.x += MOVE_SPEED;
+                let moved = false;
+                if (touchState.left) {
+                    player2.x -= MOVE_SPEED;
+                    moved = true;
+                }
+                if (touchState.right) {
+                    player2.x += MOVE_SPEED;
+                    moved = true;
+                }
+                // Launch ball if serving and moved
+                if (moved && ball.serving && ball.server === 'player2') {
+                    launchServe('player2');
+                }
             }
         }
 
@@ -970,6 +1032,16 @@
 
         function updateBallPhysics() {
             if (!ball.active) return;
+
+            // If ball is being served, stick it to the server
+            if (ball.serving && ball.server) {
+                const server = ball.server === 'player1' ? player1 : player2;
+                ball.x = server.x;
+                ball.y = server.y - 40; // Ball floats above the server
+                ball.velocityX = 0;
+                ball.velocityY = 0;
+                return; // Don't apply physics while serving
+            }
 
             // Apply gravity to ball
             ball.velocityY += GRAVITY * 0.8;
@@ -1048,6 +1120,10 @@
                 player2.score++;
             }
 
+            // Update score display immediately (especially important for AI mode)
+            document.getElementById('player1Score').textContent = player1.score;
+            document.getElementById('player2Score').textContent = player2.score;
+
             // Check for win condition
             if (player1.score >= WIN_SCORE || player2.score >= WIN_SCORE) {
                 endGame();
@@ -1057,8 +1133,8 @@
             // Reset ball
             resetBall(scoringPlayer === 'player1' ? 'player1' : 'player2');
 
-            // Update scores in Firebase
-            if (currentGameId) {
+            // Update scores in Firebase (only for online multiplayer, not AI mode)
+            if (currentGameId && !isAIMode) {
                 const gameRef = window.firebaseRef(window.firebaseDB, `volleyball-games/${currentGameId}`);
                 window.firebaseUpdate(gameRef, {
                     'player1/score': player1.score,
@@ -1068,31 +1144,56 @@
         }
 
         function resetBall(server) {
-            ball.x = server === 'player1' ? 150 : COURT_WIDTH - 150;
-            ball.y = GROUND_Y - 120;
-            ball.velocityX = server === 'player1' ? 3 : -3;
-            ball.velocityY = -5;
+            const servingPlayer = server === 'player1' ? player1 : player2;
+            ball.x = servingPlayer.x;
+            ball.y = servingPlayer.y - 40;
+            ball.velocityX = 0;
+            ball.velocityY = 0;
             ball.active = true;
+            ball.serving = true; // Ball is in serving mode
+            ball.server = server; // Track who is serving
+        }
+
+        // Launch ball when server moves
+        function launchServe(server) {
+            if (!ball.serving) return;
+
+            ball.serving = false;
+
+            // Launch ball upward and toward the opponent
+            if (server === 'player1') {
+                ball.velocityX = 4; // Move toward player2's side
+                ball.velocityY = -8; // Launch upward
+            } else {
+                ball.velocityX = -4; // Move toward player1's side
+                ball.velocityY = -8; // Launch upward
+            }
         }
 
         async function endGame() {
             gameState = 'finished';
 
             const winner = player1.score >= WIN_SCORE ? player1 : player2;
-            const winnerId = playerRole === 'player1' ?
-                (winner === player1 ? userId : opponentName) :
-                (winner === player2 ? userId : opponentName);
 
-            // Update Firebase with game result
-            if (currentGameId) {
-                const gameRef = window.firebaseRef(window.firebaseDB, `volleyball-games/${currentGameId}`);
-                await window.firebaseUpdate(gameRef, {
-                    gameState: 'finished',
-                    winner: winnerId
-                });
+            if (isAIMode) {
+                // In AI mode, show game over directly
+                const wonGame = winner === player1;
+                showGameOver(wonGame, player1.score, player2.score);
+            } else {
+                // In multiplayer mode, update Firebase
+                const winnerId = playerRole === 'player1' ?
+                    (winner === player1 ? userId : opponentName) :
+                    (winner === player2 ? userId : opponentName);
+
+                if (currentGameId) {
+                    const gameRef = window.firebaseRef(window.firebaseDB, `volleyball-games/${currentGameId}`);
+                    await window.firebaseUpdate(gameRef, {
+                        gameState: 'finished',
+                        winner: winnerId
+                    });
+                }
+                // Show will be triggered by Firebase listener
             }
-
-            // Show will be triggered by Firebase listener
         }
 
         // Game loop
@@ -1122,8 +1223,20 @@
 
                 if (isAIMode) {
                     // AI Mode - player controls player1, AI controls player2
-                    if (keys['ArrowLeft']) player1.x -= MOVE_SPEED;
-                    if (keys['ArrowRight']) player1.x += MOVE_SPEED;
+                    let player1Moved = false;
+                    if (keys['ArrowLeft']) {
+                        player1.x -= MOVE_SPEED;
+                        player1Moved = true;
+                    }
+                    if (keys['ArrowRight']) {
+                        player1.x += MOVE_SPEED;
+                        player1Moved = true;
+                    }
+
+                    // Launch ball if player1 is serving and moved
+                    if (player1Moved && ball.serving && ball.server === 'player1') {
+                        launchServe('player1');
+                    }
 
                     updatePlayerPhysics(player1);
                     updateAI(); // Update AI opponent
@@ -1131,8 +1244,20 @@
                 } else {
                     // Multiplayer Mode
                     if (playerRole === 'player1') {
-                        if (keys['ArrowLeft']) player1.x -= MOVE_SPEED;
-                        if (keys['ArrowRight']) player1.x += MOVE_SPEED;
+                        let player1Moved = false;
+                        if (keys['ArrowLeft']) {
+                            player1.x -= MOVE_SPEED;
+                            player1Moved = true;
+                        }
+                        if (keys['ArrowRight']) {
+                            player1.x += MOVE_SPEED;
+                            player1Moved = true;
+                        }
+
+                        // Launch ball if player1 is serving and moved
+                        if (player1Moved && ball.serving && ball.server === 'player1') {
+                            launchServe('player1');
+                        }
 
                         updatePlayerPhysics(player1);
 
@@ -1146,8 +1271,20 @@
                             });
                         }
                     } else if (playerRole === 'player2') {
-                        if (keys['a'] || keys['A']) player2.x -= MOVE_SPEED;
-                        if (keys['d'] || keys['D']) player2.x += MOVE_SPEED;
+                        let player2Moved = false;
+                        if (keys['a'] || keys['A']) {
+                            player2.x -= MOVE_SPEED;
+                            player2Moved = true;
+                        }
+                        if (keys['d'] || keys['D']) {
+                            player2.x += MOVE_SPEED;
+                            player2Moved = true;
+                        }
+
+                        // Launch ball if player2 is serving and moved
+                        if (player2Moved && ball.serving && ball.server === 'player2') {
+                            launchServe('player2');
+                        }
 
                         updatePlayerPhysics(player2);
 
@@ -1173,7 +1310,9 @@
                                 'ball/x': ball.x,
                                 'ball/y': ball.y,
                                 'ball/velocityX': ball.velocityX,
-                                'ball/velocityY': ball.velocityY
+                                'ball/velocityY': ball.velocityY,
+                                'ball/serving': ball.serving,
+                                'ball/server': ball.server
                             });
                         }
                     }
@@ -1272,14 +1411,21 @@
 
         function drawBall() {
             ctx.save();
+
+            // If serving, add a glow effect
+            if (ball.serving) {
+                ctx.shadowColor = '#FFD700';
+                ctx.shadowBlur = 15;
+            }
+
             ctx.fillStyle = '#FFFFFF';
             ctx.beginPath();
             ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
             ctx.fill();
 
             // Ball pattern
-            ctx.strokeStyle = '#DDDDDD';
-            ctx.lineWidth = 2;
+            ctx.strokeStyle = ball.serving ? '#FFD700' : '#DDDDDD';
+            ctx.lineWidth = ball.serving ? 3 : 2;
             ctx.beginPath();
             ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
             ctx.stroke();
