@@ -789,28 +789,35 @@
         }
 
         // AI Logic
+        let aiServeDelay = 0; // Delay counter for AI serving
+
         function updateAI() {
             if (!isAIMode) return;
+
+            // If AI is serving, wait a bit before moving (so ball is visible)
+            if (ball.serving && ball.server === 'player2') {
+                aiServeDelay++;
+
+                // After 30 frames (~0.5 seconds), serve the ball
+                if (aiServeDelay > 30) {
+                    launchServe('player2');
+                    aiServeDelay = 0;
+                }
+
+                updatePlayerPhysics(player2);
+                return; // Don't move while serving
+            }
+
+            aiServeDelay = 0; // Reset delay when not serving
 
             // AI follows the ball when it's on their side
             const targetX = ball.x > COURT_WIDTH / 2 ? ball.x : COURT_WIDTH - 200;
 
-            // Track if AI moved
-            let aiMoved = false;
-            const oldX = player2.x;
-
             // Move towards target
             if (player2.x < targetX - 10) {
                 player2.x += MOVE_SPEED * 0.7; // AI is slightly slower
-                aiMoved = true;
             } else if (player2.x > targetX + 10) {
                 player2.x -= MOVE_SPEED * 0.7;
-                aiMoved = true;
-            }
-
-            // If AI is serving and moved, launch the ball
-            if (aiMoved && ball.serving && ball.server === 'player2') {
-                launchServe('player2');
             }
 
             // Jump to hit ball if it's close
@@ -990,7 +997,21 @@
             document.getElementById('finalScoreText').textContent = `${score1} - ${score2}`;
             document.getElementById('player1NameFinal').textContent = player1NameText;
             document.getElementById('player2NameFinal').textContent = player2NameText;
-            document.getElementById('winnerName').textContent = won ? userName : opponentName;
+
+            // Determine winner name based on who won
+            let winnerNameText;
+            if (isAIMode) {
+                // In AI mode, player1 is always the user
+                winnerNameText = won ? player1NameText : player2NameText;
+            } else {
+                // In multiplayer, check which role we are
+                if (playerRole === 'player1') {
+                    winnerNameText = won ? player1NameText : player2NameText;
+                } else {
+                    winnerNameText = won ? player2NameText : player1NameText;
+                }
+            }
+            document.getElementById('winnerName').textContent = winnerNameText;
 
             // Save high score and load leaderboard
             const finalScore = won ? score1 : score2; // Your score
