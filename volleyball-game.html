@@ -223,6 +223,14 @@
             .controls-hint {
                 display: none !important;
             }
+            
+            .header h1 {
+                font-size: 1.5em;
+            }
+            
+            .score-board {
+                font-size: 1.1em;
+            }
         }
 
         @media (max-width: 480px) {
@@ -1107,16 +1115,12 @@
             // Trigger jump immediately
             if (gameState !== 'playing') return;
 
-            if (isAIMode || playerRole === 'player1') {
-                if (player1.onGround) {
-                    player1.velocityY = -JUMP_POWER;
-                    player1.onGround = false;
-                }
-            } else if (playerRole === 'player2') {
-                if (player2.onGround) {
-                    player2.velocityY = -JUMP_POWER;
-                    player2.onGround = false;
-                }
+            // Determine which player to control
+            const controlledPlayer = (isAIMode || playerRole === 'player1') ? player1 : player2;
+            
+            if (controlledPlayer.onGround) {
+                controlledPlayer.velocityY = -JUMP_POWER;
+                controlledPlayer.onGround = false;
             }
         });
         jumpBtn.addEventListener('touchend', (e) => {
@@ -1132,34 +1136,24 @@
         function applyTouchControls() {
             if (gameState !== 'playing') return;
 
-            if (isAIMode || playerRole === 'player1') {
-                let moved = false;
-                if (touchState.left) {
-                    player1.x -= MOVE_SPEED;
-                    moved = true;
-                }
-                if (touchState.right) {
-                    player1.x += MOVE_SPEED;
-                    moved = true;
-                }
-                // Launch ball if serving and moved
-                if (moved && ball.serving && ball.server === 'player1') {
-                    launchServe('player1');
-                }
-            } else if (playerRole === 'player2') {
-                let moved = false;
-                if (touchState.left) {
-                    player2.x -= MOVE_SPEED;
-                    moved = true;
-                }
-                if (touchState.right) {
-                    player2.x += MOVE_SPEED;
-                    moved = true;
-                }
-                // Launch ball if serving and moved
-                if (moved && ball.serving && ball.server === 'player2') {
-                    launchServe('player2');
-                }
+            // In AI mode or single player, always control player1
+            // In multiplayer, control whichever player you are
+            const controlledPlayer = (isAIMode || playerRole === 'player1') ? player1 : player2;
+            const serverRole = (isAIMode || playerRole === 'player1') ? 'player1' : 'player2';
+            
+            let moved = false;
+            if (touchState.left) {
+                controlledPlayer.x -= MOVE_SPEED;
+                moved = true;
+            }
+            if (touchState.right) {
+                controlledPlayer.x += MOVE_SPEED;
+                moved = true;
+            }
+            
+            // Launch ball if serving and moved
+            if (moved && ball.serving && ball.server === serverRole) {
+                launchServe(serverRole);
             }
         }
 
