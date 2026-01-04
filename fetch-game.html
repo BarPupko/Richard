@@ -242,10 +242,36 @@
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
+        // Game variables - declare early to avoid reference errors
+        let score = 0;
+        let lives = 3;
+        let gameRunning = false;
+        let fallingObjects = [];
+        let corgi = {
+            x: 0,
+            y: 0,
+            width: 80,
+            height: 60,
+            speed: 8,
+            facingRight: true,
+            velocityY: 0,
+            isJumping: false,
+            groundY: 0
+        };
+
         // Set canvas size
         function resizeCanvas() {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight - document.querySelector('.header').offsetHeight;
+            // Update corgi ground position when canvas resizes
+            corgi.groundY = canvas.height - 120;
+            if (!corgi.isJumping) {
+                corgi.y = corgi.groundY;
+            }
+            // Update x position if it's still at 0 (initial load)
+            if (corgi.x === 0) {
+                corgi.x = canvas.width / 2;
+            }
         }
         resizeCanvas();
         window.addEventListener('resize', resizeCanvas);
@@ -377,100 +403,80 @@
         // Load user data on page load
         loadUserData();
 
-        // Game variables
-        let score = 0;
-        let lives = 3;
-        let gameRunning = false;
-        let fallingObjects = [];
-        let corgi = {
-            x: canvas.width / 2,
-            y: canvas.height - 120,
-            width: 80,
-            height: 60,
-            speed: 8
-        };
+        // Load Richard video
+        const richardVideo = document.createElement('video');
+        richardVideo.src = 'gif/Untitled.mp4';
+        richardVideo.loop = true;
+        richardVideo.muted = true;
+        richardVideo.playsInline = true;
+        richardVideo.autoplay = true;
+        richardVideo.preload = 'auto';
 
-        // Draw corgi (painted style)
+        // Track if video is ready
+        let videoReady = false;
+        richardVideo.addEventListener('loadeddata', () => {
+            console.log('Video loaded successfully');
+            videoReady = true;
+            richardVideo.play().catch(err => console.log('Video autoplay prevented:', err));
+        });
+
+        richardVideo.addEventListener('canplay', () => {
+            console.log('Video can play');
+            videoReady = true;
+        });
+
+        richardVideo.addEventListener('error', (e) => {
+            console.error('Error loading video:', e);
+            videoReady = false;
+        });
+
+        // Try to load the video
+        richardVideo.load();
+
+        // Jump physics constants
+        const GRAVITY = 0.6;
+        const JUMP_POWER = -15;
+
+        // Double click/tap detection
+        let lastTapTime = 0;
+        const DOUBLE_TAP_DELAY = 300; // milliseconds
+        let lastMouseX = canvas.width / 2; // Track mouse position for direction
+
+        // Draw corgi using video
         function drawCorgi(x, y) {
             ctx.save();
-            
-            // Body
-            ctx.fillStyle = '#d4a373';
-            ctx.beginPath();
-            ctx.ellipse(x, y, 40, 25, 0, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // White belly
-            ctx.fillStyle = '#ffffff';
-            ctx.beginPath();
-            ctx.ellipse(x, y + 5, 25, 15, 0, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Head
-            ctx.fillStyle = '#d4a373';
-            ctx.beginPath();
-            ctx.ellipse(x - 25, y - 10, 20, 18, 0, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // White face marking
-            ctx.fillStyle = '#ffffff';
-            ctx.beginPath();
-            ctx.ellipse(x - 25, y - 8, 12, 10, 0, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Ears
-            ctx.fillStyle = '#d4a373';
-            // Left ear
-            ctx.beginPath();
-            ctx.moveTo(x - 35, y - 20);
-            ctx.lineTo(x - 45, y - 35);
-            ctx.lineTo(x - 30, y - 25);
-            ctx.closePath();
-            ctx.fill();
-            // Right ear
-            ctx.beginPath();
-            ctx.moveTo(x - 15, y - 20);
-            ctx.lineTo(x - 5, y - 35);
-            ctx.lineTo(x - 20, y - 25);
-            ctx.closePath();
-            ctx.fill();
-            
-            // Eyes
-            ctx.fillStyle = '#000000';
-            ctx.beginPath();
-            ctx.arc(x - 30, y - 12, 3, 0, Math.PI * 2);
-            ctx.arc(x - 20, y - 12, 3, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Nose
-            ctx.fillStyle = '#000000';
-            ctx.beginPath();
-            ctx.arc(x - 25, y - 5, 4, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Smile
-            ctx.strokeStyle = '#000000';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(x - 25, y - 3, 6, 0.2, Math.PI - 0.2);
-            ctx.stroke();
-            
-            // Legs
-            ctx.fillStyle = '#d4a373';
-            ctx.fillRect(x - 25, y + 15, 8, 15);
-            ctx.fillRect(x - 5, y + 15, 8, 15);
-            ctx.fillRect(x + 15, y + 15, 8, 15);
-            ctx.fillRect(x + 35, y + 15, 8, 15);
-            
-            // Tail
-            ctx.strokeStyle = '#d4a373';
-            ctx.lineWidth = 8;
-            ctx.beginPath();
-            ctx.moveTo(x + 40, y);
-            ctx.quadraticCurveTo(x + 50, y - 10, x + 45, y - 20);
-            ctx.stroke();
-            
+
+            // Translate to corgi position
+            ctx.translate(x, y);
+
+            // Mirror if facing left
+            if (!corgi.facingRight) {
+                ctx.scale(-1, 1);
+            }
+
+            // Draw the video if ready, otherwise draw a simple placeholder
+            if (videoReady && richardVideo.readyState >= 2) {
+                try {
+                    ctx.drawImage(richardVideo, -corgi.width/2, -corgi.height/2, corgi.width, corgi.height);
+                } catch (e) {
+                    // If video fails to draw, draw placeholder
+                    drawCorgiPlaceholder();
+                }
+            } else {
+                // Draw placeholder while video loads
+                drawCorgiPlaceholder();
+            }
+
             ctx.restore();
+
+            function drawCorgiPlaceholder() {
+                // Simple brown rectangle as placeholder
+                ctx.fillStyle = '#d4a373';
+                ctx.fillRect(-corgi.width/2, -corgi.height/2, corgi.width, corgi.height);
+                // Add white belly
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(-corgi.width/4, -corgi.height/4, corgi.width/2, corgi.height/2);
+            }
         }
 
         // Draw tennis ball
@@ -593,20 +599,74 @@
             mouseX = e.touches[0].clientX - rect.left;
         });
 
+        // Jump function
+        function makeCorgiJump() {
+            if (!gameRunning) return;
+            if (!corgi.isJumping) {
+                corgi.velocityY = JUMP_POWER;
+                corgi.isJumping = true;
+            }
+        }
+
+        // Space bar for jump on PC
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' || e.key === ' ') {
+                e.preventDefault();
+                makeCorgiJump();
+            }
+        });
+
+        // Double-click for jump on PC
+        canvas.addEventListener('dblclick', (e) => {
+            e.preventDefault();
+            makeCorgiJump();
+        });
+
+        // Double-tap for jump on mobile
+        canvas.addEventListener('touchstart', (e) => {
+            const currentTime = new Date().getTime();
+            const tapGap = currentTime - lastTapTime;
+
+            if (tapGap < DOUBLE_TAP_DELAY && tapGap > 0) {
+                e.preventDefault();
+                makeCorgiJump();
+            }
+
+            lastTapTime = currentTime;
+        });
+
         // Update corgi position
         function updateCorgiPosition() {
             if (!gameRunning) return;
-            
+
             const targetX = mouseX;
             const dx = targetX - corgi.x;
-            
+
+            // Update facing direction based on movement
+            if (dx < -5) {
+                corgi.facingRight = false; // Moving left
+            } else if (dx > 5) {
+                corgi.facingRight = true; // Moving right
+            }
+
             if (Math.abs(dx) > 5) {
                 corgi.x += dx * 0.15;
             }
-            
+
             // Keep corgi on screen
             corgi.x = Math.max(50, Math.min(canvas.width - 50, corgi.x));
-            
+
+            // Apply gravity and update vertical position
+            corgi.velocityY += GRAVITY;
+            corgi.y += corgi.velocityY;
+
+            // Check if corgi landed on ground
+            if (corgi.y >= corgi.groundY) {
+                corgi.y = corgi.groundY;
+                corgi.velocityY = 0;
+                corgi.isJumping = false;
+            }
+
             requestAnimationFrame(updateCorgiPosition);
         }
 
